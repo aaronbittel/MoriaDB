@@ -30,10 +30,8 @@ public class KVStore {
         return kv.remove(new BytesKey(key)) != null;
     }
 
-    private static final class BytesKey {
-        private byte[] data;
-
-        public BytesKey(byte[] data) {
+    private record BytesKey(byte[] data) {
+        private BytesKey(byte[] data) {
             this.data = Arrays.copyOf(data, data.length);
         }
 
@@ -48,8 +46,8 @@ public class KVStore {
 
         @Override
         public boolean equals(Object o) {
-            if (o instanceof BytesKey other) {
-                return Arrays.equals(data, other.data);
+            if (o instanceof BytesKey(byte[] data1)) {
+                return Arrays.equals(data, data1);
             }
             return false;
         }
@@ -100,7 +98,7 @@ public class KVStore {
 
         @Override
         public int hashCode() {
-            return Objects.hash(key, value);
+            return Objects.hash(key, Arrays.hashCode(value));
         }
 
         @Override

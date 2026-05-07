@@ -1,6 +1,5 @@
 package com.github.aaronbittel;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 
@@ -21,7 +20,7 @@ public class ChunkedInputStream extends InputStream {
     }
 
     @Override
-    public int read(byte[] b, int off, int len) throws IOException {
+    public int read(byte[] b, int off, int len) {
         if (pos >= data.length) return -1;
 
         int remaining = data.length - pos;
