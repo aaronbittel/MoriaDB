@@ -142,8 +142,7 @@ Authors: Max Vetrenko, Mauryan Kansara, Ruslan Diachenko, Roman Ivanov.
             <property name="tokens"
                 value="CLASS_DEF, METHOD_DEF, CTOR_DEF, LITERAL_FOR, LITERAL_WHILE, STATIC_INIT,
                 INSTANCE_INIT, ANNOTATION_DEF, ENUM_DEF, INTERFACE_DEF, RECORD_DEF,
-                COMPACT_CTOR_DEF, LITERAL_SWITCH, LITERAL_CASE, LITERAL_FINALLY,
-                LITERAL_CATCH"/>
+                COMPACT_CTOR_DEF, LITERAL_SWITCH, LITERAL_CASE, LITERAL_FINALLY"/>
         </module>
         <module name="SuppressionXpathSingleFilter">
             <!-- suppression is required till https://github.com/checkstyle/checkstyle/issues/7541 -->
@@ -463,9 +462,9 @@ Authors: Max Vetrenko, Mauryan Kansara, Ruslan Diachenko, Roman Ivanov.
                         <message key="todo.match"
                             value="''TODO:'' must be written in all caps and followed by a colon."/>
                     </module>
-                    <module name="EmptyCatchBlock">
-                        <property name="commentFormat" value="\w+"/>
-                    </module>
+                    <!-- <module name="EmptyCatchBlock"> -->
+                    <!--     <property name="commentFormat" value="\w+"/> -->
+                    <!-- </module> -->
                     <module name="CommentsIndentation">
                         <property name="tokens" value="SINGLE_LINE_COMMENT, BLOCK_COMMENT_BEGIN"/>
                     </module>
