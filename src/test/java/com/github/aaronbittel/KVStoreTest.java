@@ -19,7 +19,7 @@ class KVStoreTest {
     @BeforeEach
     void setup() throws IOException {
         Files.deleteIfExists(Path.of(TEST_DB));
-        kv = new KVStore(TEST_DB);
+        kv = new KVStore(new Log(TEST_DB));
         kv.open();
     }
 
@@ -79,7 +79,7 @@ class KVStoreTest {
 
     @Test
     void entry_encode_returns_expected_binary_format() throws IOException {
-        KVStore.Entry entry = new KVStore.Entry(b("k1"), b("value1"), false);
+        Entry entry = new Entry(bk("k1"), b("value1"), false);
 
         // | key size | val size | deleted | key data | val data |
         // | 4 bytes  | 4 bytes  | 1 byte  |   ...    |   ...    |
@@ -96,9 +96,9 @@ class KVStoreTest {
             2, 0, 0, 0, 6, 0, 0, 0, 0, 'k', '1', 'v', 'a', 'l', 'u', 'e', '1',
         };
         ByteArrayInputStream bais = new ByteArrayInputStream(data);
-        KVStore.Entry entry = KVStore.Entry.decode(bais);
+        Entry entry = Entry.decode(bais);
 
-        KVStore.Entry expected = new KVStore.Entry(b("k1"), b("value1"), false);
+        Entry expected = new Entry(bk("k1"), b("value1"), false);
 
         assertThat(entry).isEqualTo(expected);
     }
@@ -109,9 +109,9 @@ class KVStoreTest {
             2, 0, 0, 0, 6, 0, 0, 0, 0, 'k', '1', 'v', 'a', 'l', 'u', 'e', '1', 0, 4, 5,
         };
         ByteArrayInputStream bais = new ByteArrayInputStream(data);
-        KVStore.Entry entry = KVStore.Entry.decode(bais);
+        Entry entry = Entry.decode(bais);
 
-        KVStore.Entry expected = new KVStore.Entry(b("k1"), b("value1"), false);
+        Entry expected = new Entry(bk("k1"), b("value1"), false);
 
         assertThat(entry).isEqualTo(expected);
     }
@@ -122,9 +122,9 @@ class KVStoreTest {
             2, 0, 0, 0, 6, 0, 0, 0, 0, 'k', '1', 'v', 'a', 'l', 'u', 'e', '1'
         };
         ChunkedInputStream cis = new ChunkedInputStream(data, 3);
-        KVStore.Entry entry = KVStore.Entry.decode(cis);
+        Entry entry = Entry.decode(cis);
 
-        KVStore.Entry expected = new KVStore.Entry(b("k1"), b("value1"), false);
+        Entry expected = new Entry(bk("k1"), b("value1"), false);
 
         assertThat(entry).isEqualTo(expected);
     }
@@ -145,5 +145,9 @@ class KVStoreTest {
 
     static byte[] b(String s) {
         return s.getBytes();
+    }
+
+    static BytesKey bk(String s) {
+        return new BytesKey(s.getBytes());
     }
 }
