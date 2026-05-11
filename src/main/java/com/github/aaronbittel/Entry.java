@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.stream.IntStream;
+import java.util.zip.CRC32;
 
 public record Entry(BytesKey key, byte[] value, boolean deleted) {
 
@@ -14,33 +15,58 @@ public record Entry(BytesKey key, byte[] value, boolean deleted) {
         value = Arrays.copyOf(value, value.length);
     }
 
-    // | key size | val size | deleted | key data | val data |
-    // | 4 bytes  | 4 bytes  | 1 byte  |   ...    |   ...    |
+    // |  crc32  | key size | val size | deleted | key data | val data |
+    // | 4 bytes | 4 bytes  | 4 bytes  | 1 byte  |   ...    |   ...    |
     public byte[] encode() {
-        int totalSize = Integer.BYTES * 2 + 1 + key.value().length + value.length;
-        ByteBuffer buf = ByteBuffer.allocate(totalSize);
+        int payloadSize = Integer.BYTES * 3 + 1 + key.value().length + value.length;
+        ByteBuffer payloadBuf = ByteBuffer.allocate(payloadSize);
+        payloadBuf.position(Integer.BYTES); // skip checksum
 
         byte[] keyBytes = key.value();
-        buf.putInt(keyBytes.length);
-        buf.putInt(value.length);
-        buf.put((byte) (deleted ? 1 : 0));
-        buf.put(keyBytes);
-        buf.put(value);
+        payloadBuf
+            .putInt(keyBytes.length)
+            .putInt(value.length)
+            .put((byte) (deleted ? 1 : 0))
+            .put(keyBytes)
+            .put(value);
 
-        return buf.array();
+        CRC32 crc = new CRC32();
+        byte[] buf = payloadBuf.array();
+        crc.update(buf, Integer.BYTES, buf.length - Integer.BYTES);
+
+        payloadBuf.putInt(0, (int) crc.getValue()); // modifies buf
+
+        return buf;
     }
 
     public static Entry decode(DataInput in) throws IOException {
-        int keySize = in.readInt();
-        int valSize = in.readInt();
+        // checksum(4) + keySize(4) + valSize(4) + deleted(1)
+        byte[] header = new byte[Integer.BYTES * 3 + 1];
+        in.readFully(header, 0, header.length);
 
-        boolean deleted = in.readByte() != 0;
+        ByteBuffer headerBuf = ByteBuffer.wrap(header);
+
+        int expectedChecksum = headerBuf.getInt();
+        int keySize = headerBuf.getInt();
+        int valSize = headerBuf.getInt();
+        boolean deleted = headerBuf.get() != 0;
 
         byte[] keyData = new byte[keySize];
-        in.readFully(keyData, 0, keySize);
+        in.readFully(keyData, 0, keyData.length);
 
         byte[] valData = new byte[valSize];
         in.readFully(valData, 0, valSize);
+
+        CRC32 crc = new CRC32();
+        crc.update(header, Integer.BYTES, header.length - Integer.BYTES);
+        crc.update(keyData);
+        crc.update(valData);
+
+        int actualChecksum = (int) crc.getValue();
+
+        if (expectedChecksum != actualChecksum) {
+            throw new IOException("Checksum mismatch");
+        }
 
         return new Entry(new BytesKey(keyData), valData, deleted);
     }

@@ -343,7 +343,7 @@ Authors: Max Vetrenko, Mauryan Kansara, Ruslan Diachenko, Roman Ivanov.
             <module name="NoWhitespaceBeforeCaseDefaultColon"/>
             <module name="OverloadMethodsDeclarationOrder"/>
             <module name="ConstructorsDeclarationGrouping"/>
-            <module name="VariableDeclarationUsageDistance"/>
+            <!-- <module name="VariableDeclarationUsageDistance"/> -->
             <module name="CustomImportOrder">
                 <property name="sortImportsInGroupAlphabetically" value="true"/>
                 <property name="separateLineBetweenGroups" value="true"/>
