@@ -34,6 +34,7 @@ tasks.test {
         showExceptions = true
         showCauses = true
         showStackTraces = true
+        showStandardStreams = true
     }
 
 }

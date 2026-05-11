@@ -3,6 +3,8 @@ package com.github.aaronbittel;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -85,7 +87,7 @@ class KVStoreTest {
         // | 4 bytes  | 4 bytes  | 1 byte  |   ...    |   ...    |
 
         byte[] expected = new byte[]{
-            2, 0, 0, 0, 6, 0, 0, 0, 0, 'k', '1', 'v', 'a', 'l', 'u', 'e', '1',
+            0, 0, 0, 2, 0, 0, 0, 6, 0, 'k', '1', 'v', 'a', 'l', 'u', 'e', '1',
         };
         assertThat(entry.encode()).isEqualTo(expected);
     }
@@ -93,10 +95,10 @@ class KVStoreTest {
     @Test
     void decode_valid_kv_entry_returns_entry() throws IOException {
         byte[] data = new byte[]{
-            2, 0, 0, 0, 6, 0, 0, 0, 0, 'k', '1', 'v', 'a', 'l', 'u', 'e', '1',
+            0, 0, 0, 2, 0, 0, 0, 6, 0, 'k', '1', 'v', 'a', 'l', 'u', 'e', '1',
         };
-        ByteArrayInputStream bais = new ByteArrayInputStream(data);
-        Entry entry = Entry.decode(bais);
+        DataInput in = new DataInputStream(new ByteArrayInputStream(data));
+        Entry entry = Entry.decode(in);
 
         Entry expected = new Entry(bk("k1"), b("value1"), false);
 
@@ -106,10 +108,10 @@ class KVStoreTest {
     @Test
     void decode_valid_entry_stops_at_expected_length() throws IOException {
         byte[] data = new byte[]{
-            2, 0, 0, 0, 6, 0, 0, 0, 0, 'k', '1', 'v', 'a', 'l', 'u', 'e', '1', 0, 4, 5,
+            0, 0, 0, 2, 0, 0, 0, 6, 0, 'k', '1', 'v', 'a', 'l', 'u', 'e', '1', 0, 4, 5,
         };
-        ByteArrayInputStream bais = new ByteArrayInputStream(data);
-        Entry entry = Entry.decode(bais);
+        DataInput in = new DataInputStream(new ByteArrayInputStream(data));
+        Entry entry = Entry.decode(in);
 
         Entry expected = new Entry(bk("k1"), b("value1"), false);
 
@@ -119,10 +121,10 @@ class KVStoreTest {
     @Test
     void decode_entry_from_chunked_stream_parses_correctly() throws IOException {
         byte[] data = new byte[]{
-            2, 0, 0, 0, 6, 0, 0, 0, 0, 'k', '1', 'v', 'a', 'l', 'u', 'e', '1'
+            0, 0, 0, 2, 0, 0, 0, 6, 0, 'k', '1', 'v', 'a', 'l', 'u', 'e', '1'
         };
-        ChunkedInputStream cis = new ChunkedInputStream(data, 3);
-        Entry entry = Entry.decode(cis);
+        DataInput in = new DataInputStream(new ChunkedInputStream(data, 3));
+        Entry entry = Entry.decode(in);
 
         Entry expected = new Entry(bk("k1"), b("value1"), false);
 
@@ -137,6 +139,21 @@ class KVStoreTest {
         assertThat(kv.delete(b("second key"))).isTrue();
         kv.close();
 
+        kv.open();
+        assertThat(kv.get(b("key1"))).hasValue(b("value"));
+        assertThat(kv.get(b("second key"))).isEmpty();
+        assertThat(kv.get(b("another key"))).hasValue(b("another value"));
+    }
+
+    @Test
+    void reloading_kv_restores_saved_entries() throws IOException {
+        kv.set(b("key1"), b("value"));
+        kv.set(b("second key"), b("second value"));
+        kv.set(b("another key"), b("another value"));
+        assertThat(kv.delete(b("second key"))).isTrue();
+        kv.close();
+
+        kv = new KVStore(new Log(TEST_DB));
         kv.open();
         assertThat(kv.get(b("key1"))).hasValue(b("value"));
         assertThat(kv.get(b("second key"))).isEmpty();

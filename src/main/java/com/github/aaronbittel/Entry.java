@@ -1,10 +1,7 @@
 package com.github.aaronbittel;
 
-import static java.nio.ByteOrder.LITTLE_ENDIAN;
-
-import java.io.EOFException;
+import java.io.DataInput;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HexFormat;
@@ -21,7 +18,7 @@ public record Entry(BytesKey key, byte[] value, boolean deleted) {
     // | 4 bytes  | 4 bytes  | 1 byte  |   ...    |   ...    |
     public byte[] encode() {
         int totalSize = Integer.BYTES * 2 + 1 + key.value().length + value.length;
-        ByteBuffer buf = ByteBuffer.allocate(totalSize).order(LITTLE_ENDIAN);
+        ByteBuffer buf = ByteBuffer.allocate(totalSize);
 
         byte[] keyBytes = key.value();
         buf.putInt(keyBytes.length);
@@ -33,33 +30,17 @@ public record Entry(BytesKey key, byte[] value, boolean deleted) {
         return buf.array();
     }
 
-    public static Entry decode(InputStream in) throws IOException {
-        byte[] keyBuf = in.readNBytes(4);
-        if (keyBuf.length != 4) {
-            throw new EOFException();
-        }
-        int keySize = ByteBuffer.wrap(keyBuf).order(LITTLE_ENDIAN).getInt();
+    public static Entry decode(DataInput in) throws IOException {
+        int keySize = in.readInt();
+        int valSize = in.readInt();
 
-        byte[] valBuf = in.readNBytes(4);
-        if (valBuf.length != 4) {
-            throw new EOFException();
-        }
-        int valSize = ByteBuffer.wrap(valBuf).order(LITTLE_ENDIAN).getInt();
+        boolean deleted = in.readByte() != 0;
 
-        byte deletedByte = (byte) in.read();
-        if (deletedByte == -1) {
-            throw new EOFException();
-        }
-        boolean deleted = deletedByte != 0;
+        byte[] keyData = new byte[keySize];
+        in.readFully(keyData, 0, keySize);
 
-        byte[] keyData = in.readNBytes(keySize);
-        if (keyData.length != keySize) {
-            throw new EOFException();
-        }
-        byte[] valData = in.readNBytes(valSize);
-        if (valData.length != valSize) {
-            throw new EOFException();
-        }
+        byte[] valData = new byte[valSize];
+        in.readFully(valData, 0, valSize);
 
         return new Entry(new BytesKey(keyData), valData, deleted);
     }
