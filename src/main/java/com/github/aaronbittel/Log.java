@@ -26,6 +26,7 @@ public class Log implements AutoCloseable {
 
     public void write(Entry entry) throws IOException {
         file.write(entry.encode());
+        file.getFD().sync();
     }
 
     public Entry read() throws IOException {
