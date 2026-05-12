@@ -8,6 +8,9 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 public sealed interface Cell permits Cell.Int, Cell.Str {
+
+    void encode(ByteArrayOutputStream baos);
+
     record Int(long value) implements Cell {
 
         public void encode(ByteArrayOutputStream baos) {
