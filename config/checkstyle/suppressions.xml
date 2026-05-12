@@ -4,6 +4,6 @@
     "https://checkstyle.org/dtds/suppressions_1_2.dtd">
 
 <suppressions>
-    <suppress checks="MethodName"
-              files=".*/src/test/java/.*"/>
+    <suppress checks="MethodName" files=".*/src/test/java/.*"/>
+    <suppress checks="LineLength" files=".*/src/test/java/.*"/>
 </suppressions>

@@ -59,14 +59,14 @@ class KVStoreTest {
     }
 
     @Test
-    void set_existing_key_returns_true_and_overwrites_value() throws IOException {
+    void set_Upsert_existing_key_returns_true_and_overwrites_value() throws IOException {
         assertThat(kv.set(b("k1"), b("v1"))).isTrue();
         assertThat(kv.set(b("k1"), b("v2"))).isTrue();
         assertThat(kv.get(b("k1"))).hasValue(b("v2"));
     }
 
     @Test
-    void modifying_key_after_set_does_not_affect_store() throws IOException {
+    void modifying_key_after_set_Upsert_does_not_affect_store() throws IOException {
         byte[] key = b("k1");
         byte[] value = b("v1");
 
@@ -77,7 +77,7 @@ class KVStoreTest {
     }
 
     @Test
-    void modifying_value_after_set_does_not_affect_store() throws IOException {
+    void modifying_value_after_set_Upsert_does_not_affect_store() throws IOException {
         byte[] key = b("k1");
         byte[] value = b("v1");
 
@@ -144,5 +144,25 @@ class KVStoreTest {
         kv.open();
         assertThat(kv.get(b("k1"))).hasValue(b("v1"));
         assertThat(kv.get(b("k2"))).isEmpty();
+    }
+
+    @Test
+    void set_insert_mode_does_not_update_value_and_returns_false() throws IOException {
+        assertThat(kv.setEx(b("k1"), b("v1"), UpdateMode.INSERT)).isTrue();
+        assertThat(kv.setEx(b("k1"), b("v2"), UpdateMode.INSERT)).isFalse();
+        assertThat(kv.get(b("k1"))).hasValue(b("v1"));
+    }
+
+    @Test
+    void set_update_mode_does_not_insert_if_key_is_not_present_and_returns_false() throws IOException {
+        assertThat(kv.setEx(b("k1"), b("v1"), UpdateMode.UPDATE)).isFalse();
+        assertThat(kv.get(b("k1"))).isEmpty();
+    }
+
+    @Test
+    void set_update_mode_updates_value_if_key_is_present_and_returns_true() throws IOException {
+        assertThat(kv.setEx(b("k1"), b("v1"), UpdateMode.INSERT)).isTrue();
+        assertThat(kv.setEx(b("k1"), b("new value"), UpdateMode.UPDATE)).isTrue();
+        assertThat(kv.get(b("k1"))).hasValue(b("new value"));
     }
 }

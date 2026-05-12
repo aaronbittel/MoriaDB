@@ -42,6 +42,27 @@ public class KVStore {
         return value == null ? Optional.empty() : Optional.of(value);
     }
 
+    public boolean setEx(byte[] key,
+                         byte[] value,
+                         UpdateMode updateMode) throws IOException {
+        BytesKey bytesKey = new BytesKey(key);
+        byte[] oldValue = kv.get(bytesKey);
+
+        boolean exists = oldValue != null;
+        boolean updated = switch (updateMode) {
+            case UPSERT -> !exists || !Arrays.equals(oldValue, value);
+            case INSERT -> !exists;
+            case UPDATE -> exists && !Arrays.equals(oldValue, value);
+        };
+
+        if (updated) {
+            kv.put(bytesKey, value);
+            log.write(new Entry(bytesKey, value, false));
+        }
+
+        return updated;
+    }
+
     public boolean set(byte[] key, byte[] value) throws IOException {
         byte[] oldValue = kv.put(new BytesKey(key), Arrays.copyOf(value, value.length));
         log.write(new Entry(new BytesKey(key), value, false));
