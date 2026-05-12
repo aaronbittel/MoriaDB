@@ -20,9 +20,9 @@ class EntryTest {
         Entry entry = new Entry(bk("k1"), b("value1"), false);
 
         byte[] expected = new byte[]{
-            (byte) 0xB5, (byte) 0xBD, (byte) 0x9A, (byte) 0xA5,
-            0, 0, 0, 2,
-            0, 0, 0, 6,
+            (byte) 0x55, (byte) 0x61, (byte) 0x14, (byte) 0x2D,
+            2, 0, 0, 0,
+            6, 0, 0, 0,
             0,
             'k', '1',
             'v', 'a', 'l', 'u', 'e', '1'
@@ -33,9 +33,9 @@ class EntryTest {
     @Test
     void decode_returns_expected_entry() throws IOException {
         byte[] data = new byte[]{
-            (byte) 0xB5, (byte) 0xBD, (byte) 0x9A, (byte) 0xA5,
-            0, 0, 0, 2,
-            0, 0, 0, 6,
+            (byte) 0x55, (byte) 0x61, (byte) 0x14, (byte) 0x2D,
+            2, 0, 0, 0,
+            6, 0, 0, 0,
             0,
             'k', '1',
             'v', 'a', 'l', 'u', 'e', '1'
@@ -51,9 +51,9 @@ class EntryTest {
     @Test
     void decode_stops_reading_at_entry_boundary() throws IOException {
         byte[] data = new byte[]{
-            (byte) 0xB5, (byte) 0xBD, (byte) 0x9A, (byte) 0xA5,
-            0, 0, 0, 2,
-            0, 0, 0, 6,
+            (byte) 0x55, (byte) 0x61, (byte) 0x14, (byte) 0x2D,
+            2, 0, 0, 0,
+            6, 0, 0, 0,
             0,
             'k', '1',
             'v', 'a', 'l', 'u', 'e', '1',
@@ -70,9 +70,9 @@ class EntryTest {
     @Test
     void decode_from_chunked_stream_returns_expected_entry() throws IOException {
         byte[] data = new byte[]{
-            (byte) 0xB5, (byte) 0xBD, (byte) 0x9A, (byte) 0xA5,
-            0, 0, 0, 2,
-            0, 0, 0, 6,
+            (byte) 0x55, (byte) 0x61, (byte) 0x14, (byte) 0x2D,
+            2, 0, 0, 0,
+            6, 0, 0, 0,
             0,
             'k', '1',
             'v', 'a', 'l', 'u', 'e', '1'

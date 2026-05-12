@@ -1,5 +1,7 @@
 package com.github.aaronbittel;
 
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
+
 import java.io.DataInput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -19,7 +21,7 @@ public record Entry(BytesKey key, byte[] value, boolean deleted) {
     // | 4 bytes | 4 bytes  | 4 bytes  | 1 byte  |   ...    |   ...    |
     public byte[] encode() {
         int payloadSize = Integer.BYTES * 3 + 1 + key.value().length + value.length;
-        ByteBuffer payloadBuf = ByteBuffer.allocate(payloadSize);
+        ByteBuffer payloadBuf = ByteBuffer.allocate(payloadSize).order(LITTLE_ENDIAN);
         payloadBuf.position(Integer.BYTES); // skip checksum
 
         byte[] keyBytes = key.value();
@@ -44,7 +46,7 @@ public record Entry(BytesKey key, byte[] value, boolean deleted) {
         byte[] header = new byte[Integer.BYTES * 3 + 1];
         in.readFully(header, 0, header.length);
 
-        ByteBuffer headerBuf = ByteBuffer.wrap(header);
+        ByteBuffer headerBuf = ByteBuffer.wrap(header).order(LITTLE_ENDIAN);
 
         int expectedChecksum = headerBuf.getInt();
         int keySize = headerBuf.getInt();
