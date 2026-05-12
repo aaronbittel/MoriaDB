@@ -2,6 +2,7 @@ package com.github.aaronbittel;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
+import com.github.aaronbittel.table.CellType;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
@@ -11,12 +12,19 @@ public sealed interface Cell permits Cell.Int, Cell.Str {
 
     void encode(ByteArrayOutputStream baos);
 
+    CellType type();
+
     record Int(long value) implements Cell {
 
         public void encode(ByteArrayOutputStream baos) {
             ByteBuffer buf = ByteBuffer.allocate(Long.BYTES).order(LITTLE_ENDIAN);
             buf.putLong(value);
             baos.writeBytes(buf.array());
+        }
+
+        @Override
+        public CellType type() {
+            return CellType.INT;
         }
 
         public static Cell.Int decode(ByteArrayInputStream bais) {
@@ -37,6 +45,11 @@ public sealed interface Cell permits Cell.Int, Cell.Str {
             buf.putInt(data.length);
             buf.put(data);
             baos.writeBytes(buf.array());
+        }
+
+        @Override
+        public CellType type() {
+            return CellType.STR;
         }
 
         public static Cell.Str decode(ByteArrayInputStream bais) {
