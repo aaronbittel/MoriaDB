@@ -4,6 +4,7 @@ import static com.github.aaronbittel.TestBytes.b;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
+import java.util.List;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -123,5 +124,59 @@ class ParserTest {
             .as(description)
             .isThrownBy(parser::parseValue);
     }
-}
 
+    static Stream<Arguments> validSelectStatements() {
+        return Stream.of(
+            Arguments.of(
+                "select a from t where c=1;",
+                new StmtSelect(
+                    "t",
+                    List.of("a"),
+                    List.of(new NamedCell("c", new Cell.Int(1))))),
+            Arguments.of(
+                "select a,b,column from t where c=-21 and dot=\"hello\";",
+                new StmtSelect(
+                    "t",
+                    List.of("a", "b", "column"),
+                    List.of(
+                        new NamedCell("c", new Cell.Int(-21)),
+                        new NamedCell("dot", new Cell.Str(b("hello")))))),
+            Arguments.of(
+                "select a,b,column from t;",
+                new StmtSelect(
+                    "t",
+                    List.of("a", "b", "column"),
+                    List.of()))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("validSelectStatements")
+    void parses_valid_select_statements(String stmt, StmtSelect expected) {
+        Parser parser = new Parser(stmt);
+        assertThat(parser.parseSelect()).isEqualTo(expected);
+    }
+
+    static Stream<Arguments> invalidSelectStatements() {
+        return Stream.of(
+            Arguments.of("a from t where c=1;", "Missing 'select' keyword"),
+            Arguments.of("select from t where c=1;", "Missing select column"),
+            Arguments.of("select a, from t where c=1;", "Trailing comma in columns"),
+            Arguments.of("select a,b t where c=1;", "Missing 'from' keyword"),
+            Arguments.of("select a,b from where c=1;", "Missing tableName"),
+            Arguments.of("select a,b from t where c=1 d=4;", "Missing 'and' keyword in where clause"),
+            Arguments.of("select a,b from t where c=1", "Missing ';'")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidSelectStatements")
+    void throws_exception_for_invalid_select_statements(
+        String stmt, String description) {
+
+        Parser parser = new Parser(stmt);
+        assertThatExceptionOfType(IllegalArgumentException.class)
+            .as(description)
+            .isThrownBy(parser::parseSelect);
+    }
+}

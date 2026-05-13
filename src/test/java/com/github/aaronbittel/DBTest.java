@@ -47,8 +47,6 @@ class DBTest {
         )
     );
 
-    Row emptyRow = new Row(Arrays.asList(new Cell.Null(), new Cell.Null(), new Cell.Null()));
-
     Row out;
 
     @BeforeEach

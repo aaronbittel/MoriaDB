@@ -1,5 +1,7 @@
 package com.github.aaronbittel.parser;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import com.github.aaronbittel.Cell;
@@ -11,6 +13,45 @@ public class Parser {
 
     public Parser(String source) {
         this.source = source;
+    }
+
+    public StmtSelect parseSelect() {
+        if (!tryKeyword("SELECT")) {
+            throw new IllegalArgumentException("Expected 'SELECT' keyword");
+        }
+
+        List<String> columns = new ArrayList<>();
+        String columnName = tryName().orElseThrow(() ->
+            new IllegalArgumentException("At least one column must be selected"));
+        columns.add(columnName);
+
+        while (tryPunctuation(",")) {
+            columnName = tryName().orElseThrow(() ->
+                new IllegalArgumentException(
+                    "trailing ',' is not allowed in columns list"));
+            columns.add(columnName);
+        }
+
+        if (!tryKeyword("FROM")) {
+            throw new IllegalArgumentException("Expected 'FROM' keyword");
+        }
+
+        String tableName = tryName().orElseThrow(() ->
+            new IllegalArgumentException("No table name provided"));
+
+        List<NamedCell> namedCells = new ArrayList<>();
+
+        if (tryKeyword("WHERE")) {
+            do {
+                namedCells.add(parseEqual());
+            } while (tryKeyword("AND"));
+        }
+
+        if (!tryPunctuation(";")) {
+            throw new IllegalArgumentException("Expected ';' at the end of statement");
+        }
+
+        return new StmtSelect(tableName, columns, namedCells);
     }
 
     public Optional<String> tryName() {
@@ -31,6 +72,7 @@ public class Parser {
         return Optional.of(source.substring(start, end));
     }
 
+    // TODO: simplify see tryPunctuation
     public boolean tryKeyword(String keyword) {
         skipWhitespace();
 
@@ -66,6 +108,20 @@ public class Parser {
         }
     }
 
+    private NamedCell parseEqual() {
+        skipWhitespace();
+        String columnName = tryName().orElseThrow(() ->
+            new IllegalArgumentException("Expected identifier after WHERE clause"));
+
+        if (!tryPunctuation("=")) {
+            throw new IllegalArgumentException("Expected '=' for WHERE clause");
+        }
+
+        Cell cell = parseValue();
+
+        return new NamedCell(columnName, cell);
+    }
+
     private Cell parseString() {
         StringBuilder sb = new StringBuilder();
 
@@ -96,6 +152,7 @@ public class Parser {
         if (current() != startingQuote) {
             throw new IllegalArgumentException("Unterminated string literal");
         }
+        advance();
 
         return new Cell.Str(sb.toString().getBytes());
     }
@@ -107,6 +164,16 @@ public class Parser {
         } while (Character.isDigit(current()));
         int end = pos;
         return new Cell.Int(Long.parseLong(source.substring(start, end)));
+    }
+
+    private boolean tryPunctuation(String punct) {
+        skipWhitespace();
+
+        if (punct.length() > source.length() - pos) return false;
+        if (!punct.equals(source.substring(pos, pos + punct.length()))) return false;
+
+        pos += punct.length();
+        return true;
     }
 
     private static boolean isSeparator(char c) {

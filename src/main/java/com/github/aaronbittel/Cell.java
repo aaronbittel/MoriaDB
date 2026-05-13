@@ -34,6 +34,11 @@ public sealed interface Cell permits Cell.Int, Cell.Str, Cell.Null {
             ByteBuffer buf = ByteBuffer.wrap(data).order(LITTLE_ENDIAN);
             return new Cell.Int(buf.getLong());
         }
+
+        @Override
+        public String toString() {
+            return String.valueOf(value);
+        }
     }
 
     record Str(byte[] data) implements Cell {
@@ -96,6 +101,11 @@ public sealed interface Cell permits Cell.Int, Cell.Str, Cell.Null {
 
         public CellType type() {
             return CellType.NULL;
+        }
+
+        @Override
+        public String toString() {
+            return "NULL";
         }
     }
 }

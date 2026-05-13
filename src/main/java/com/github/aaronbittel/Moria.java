@@ -12,12 +12,6 @@ public class Moria {
         kv.delete("second key".getBytes());
         kv.close();
 
-        takes(
-              "lsajflajslfjsdlfsljdflsajfljlsjfljlsajfslfjlasfj",
-              "klsdjfljlöfjsdalfkjsdlökjfljsdlfjdsfsla",
-              "lksdjfljsdljfslfj");
-    }
-
-    private static void takes(String a, String b, String c) {
+        int x = 2;
     }
 }
