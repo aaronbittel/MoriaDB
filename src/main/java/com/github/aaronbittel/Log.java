@@ -21,7 +21,7 @@ public class Log implements AutoCloseable {
     public void close() throws IOException {
         if (file == null) return;
         file.close();
-        file = null;
+        file = null; // NOPMD
     }
 
     public void write(Entry entry) throws IOException {

@@ -27,8 +27,15 @@ tasks.jar {
 tasks.test {
     useJUnitPlatform()
 
+    val failedOnly = project.hasProperty("failedOnly")
+
     testLogging {
-        events("passed", "failed", "skipped")
+
+        if (!failedOnly) {
+            events("passed", "failed", "skipped")
+        } else {
+            events("failed")
+        }
 
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 
@@ -54,5 +61,14 @@ tasks.withType<JavaCompile> {
 pmd {
     toolVersion = "7.24.0"
     isConsoleOutput = true
-    ruleSetFiles = files("config/pmd/pmd.xml")
+}
+
+tasks.named<Pmd>("pmdMain") {
+    ruleSetFiles = files("config/pmd/pmdMain.xml")
+    ruleSets = emptyList()
+}
+
+tasks.named<Pmd>("pmdTest") {
+    ruleSetFiles = files("config/pmd/pmdTest.xml")
+    ruleSets = emptyList()
 }

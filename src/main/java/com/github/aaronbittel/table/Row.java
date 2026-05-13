@@ -88,7 +88,7 @@ public class Row {
 
         // skip tablename + '\0' byte
         int b;
-        while ((b = bais.read()) != 0) {
+        while ((b = bais.read()) != 0) { // NOPMD
             if (b == -1) {
                 throw new IllegalStateException("Unexpected EOF reached");
             }

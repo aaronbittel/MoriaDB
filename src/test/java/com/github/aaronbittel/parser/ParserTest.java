@@ -1,6 +1,6 @@
 package com.github.aaronbittel.parser;
 
-import static com.github.aaronbittel.TestBytes.b;
+import static com.github.aaronbittel.BytesUtility.bytes;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
@@ -62,7 +62,7 @@ class ParserTest {
             Arguments.of("-0", new Cell.Int(0)),
             Arguments.of("+0", new Cell.Int(0)),
             Arguments.of(" 5", new Cell.Int(5)),
-            Arguments.of("0012412  ", new Cell.Int(12412)),
+            Arguments.of("0012412  ", new Cell.Int(12_412)),
             Arguments.of("+5124", new Cell.Int(5124))
         );
     }
@@ -94,10 +94,10 @@ class ParserTest {
 
     static Stream<Arguments> stringCases() {
         return Stream.of(
-            Arguments.of("  \"hello\"   ", new Cell.Str(b("hello"))),
-            Arguments.of("'hi'", new Cell.Str(b("hi"))),
-            Arguments.of("   \"abc\\'d\"", new Cell.Str(b("abc'd"))),
-            Arguments.of("'hel\\\\lo'", new Cell.Str(b("hel\\lo")))
+            Arguments.of("  \"hello\"   ", new Cell.Str(bytes("hello"))),
+            Arguments.of("'hi'", new Cell.Str(bytes("hi"))),
+            Arguments.of("   \"abc\\'d\"", new Cell.Str(bytes("abc'd"))),
+            Arguments.of("'hel\\\\lo'", new Cell.Str(bytes("hel\\lo")))
         );
     }
 
@@ -142,7 +142,7 @@ class ParserTest {
                     List.of("a", "b", "column"),
                     List.of(
                         new NamedCell("c", new Cell.Int(-21)),
-                        new NamedCell("dot", new Cell.Str(b("hello")))))),
+                        new NamedCell("dot", new Cell.Str(bytes("hello")))))),
             Arguments.of(
                 "select a,b,column from t;",
                 new StmtSelect(

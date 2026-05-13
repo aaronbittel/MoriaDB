@@ -7,12 +7,26 @@
 
     <description>
         <!-- https://docs.pmd-code.org/pmd-doc-7.24.0/pmd_rules_java_bestpractices.html -->
-        My custom rules
+        Rules for pmdMain
     </description>
 
     <rule ref="category/java/bestpractices.xml">
         <exclude name="UnitTestContainsTooManyAsserts"/>
         <exclude name="RelianceOnDefaultCharset"/>
+    </rule>
+
+    <rule ref="category/java/codestyle.xml">
+        <exclude name="ShortVariable"/>
+        <exclude name="ShortMethodName"/>
+        <exclude name="ShortClassName"/>
+        <exclude name="LocalVariableCouldBeFinal"/>
+        <exclude name="MethodArgumentCouldBeFinal"/>
+        <exclude name="ControlStatementBraces"/>
+        <exclude name="OnlyOneReturn"/>
+        <exclude name="LinguisticNaming"/>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml">
     </rule>
 
 </ruleset>

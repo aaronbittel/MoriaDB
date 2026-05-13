@@ -9,6 +9,7 @@ public class ChunkedInputStream extends InputStream {
     private final int chunkSize;
 
     public ChunkedInputStream(byte[] data, int chunkSize) {
+        super();
         this.data = Arrays.copyOf(data, data.length);
         this.chunkSize = chunkSize;
     }
@@ -16,7 +17,7 @@ public class ChunkedInputStream extends InputStream {
     @Override
     public int read() {
         if (pos >= data.length) return -1;
-        return data[pos++] & 0xFF;
+        return data[pos++] & 0xFF; // NOPMD(AssignmentInOperand)
     }
 
     @Override

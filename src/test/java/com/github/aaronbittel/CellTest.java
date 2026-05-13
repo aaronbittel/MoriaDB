@@ -1,6 +1,6 @@
 package com.github.aaronbittel;
 
-import static com.github.aaronbittel.TestBytes.b;
+import static com.github.aaronbittel.BytesUtility.bytes;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.ByteArrayInputStream;
@@ -16,7 +16,7 @@ class CellTest {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         intCell.encode(baos);
 
-        byte[] expected = new byte[]{
+        byte[] expected = {
             (byte) 0xFE, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
             (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF
         };
@@ -29,11 +29,11 @@ class CellTest {
 
     @Test
     void str_cell_roundtrip_returns_the_same_object() {
-        Cell.Str strCell = new Cell.Str(b("asdf"));
+        Cell.Str strCell = new Cell.Str(bytes("asdf"));
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         strCell.encode(baos);
 
-        byte[] expected = new byte[]{ 4, 0, 0, 0, 'a', 's', 'd', 'f' };
+        byte[] expected = { 4, 0, 0, 0, 'a', 's', 'd', 'f' };
         assertThat(expected).isEqualTo(baos.toByteArray());
 
         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());

@@ -1,6 +1,6 @@
 package com.github.aaronbittel;
 
-import static com.github.aaronbittel.TestBytes.b;
+import static com.github.aaronbittel.BytesUtility.bytes;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
@@ -25,7 +25,7 @@ import com.github.aaronbittel.table.Schema;
 
 class DBTest {
 
-    static String TEST_DB = ".test.db";
+    static String testDB = ".test.db";
 
     DB db;
 
@@ -42,8 +42,8 @@ class DBTest {
     Row row = new Row(
         List.of(
             new Cell.Int(123),
-            new Cell.Str(b("a")),
-            new Cell.Str(b("b"))
+            new Cell.Str(bytes("a")),
+            new Cell.Str(bytes("b"))
         )
     );
 
@@ -51,22 +51,22 @@ class DBTest {
 
     @BeforeEach
     void setup() throws IOException {
-        Files.deleteIfExists(Path.of(TEST_DB));
-        db = new DB(new KVStore(new Log(TEST_DB)));
+        Files.deleteIfExists(Path.of(testDB));
+        db = new DB(new KVStore(new Log(testDB)));
         db.open();
 
         out = new Row(
             Arrays.asList(
                 new Cell.Null(),
-                new Cell.Str(b("a")),
-                new Cell.Str(b("b"))
+                new Cell.Str(bytes("a")),
+                new Cell.Str(bytes("b"))
             )
         );
     }
 
     @AfterEach
     void teardown() throws IOException {
-        Files.deleteIfExists(Path.of(TEST_DB));
+        Files.deleteIfExists(Path.of(testDB));
         db.close();
     }
 
@@ -98,8 +98,8 @@ class DBTest {
         Row updatedRow = new Row(
             List.of(
                 new Cell.Int(456),
-                new Cell.Str(b("a")),
-                new Cell.Str(b("b"))
+                new Cell.Str(bytes("a")),
+                new Cell.Str(bytes("b"))
             )
         );
         assertThat(db.upsert(schema, updatedRow)).isTrue();
@@ -129,8 +129,8 @@ class DBTest {
         Row updatedRow = new Row(
             List.of(
                 new Cell.Int(456),
-                new Cell.Str(b("a")),
-                new Cell.Str(b("b"))
+                new Cell.Str(bytes("a")),
+                new Cell.Str(bytes("b"))
             )
         );
 
@@ -153,8 +153,8 @@ class DBTest {
         Row key = new Row(
             Arrays.asList(
                 new Cell.Null(),
-                new Cell.Str(b("a")),
-                new Cell.Str(b("b"))
+                new Cell.Str(bytes("a")),
+                new Cell.Str(bytes("b"))
             )
         );
 
@@ -202,12 +202,12 @@ class DBTest {
             new Cell.Null()));
         Row missingPrimaryKey = new Row(Arrays.asList(
                 new Cell.Null(),
-                new Cell.Str(b("a")),
+                new Cell.Str(bytes("a")),
                 new Cell.Null()));
         Row wrongPrimaryKey = new Row(Arrays.asList(
                 new Cell.Null(),
                 new Cell.Int(123),
-                new Cell.Str(b("b"))));
+                new Cell.Str(bytes("b"))));
         return Stream.of(
             Arguments.of(
                 emptyRow,
@@ -231,23 +231,23 @@ class DBTest {
 
         Row missingPrimaryKey = new Row(Arrays.asList(
             new Cell.Int(123),
-            new Cell.Str(b("a")),
+            new Cell.Str(bytes("a")),
             new Cell.Null()));
 
         Row missingValue = new Row(Arrays.asList(
             new Cell.Null(),
-            new Cell.Str(b("a")),
-            new Cell.Str(b("b"))));
+            new Cell.Str(bytes("a")),
+            new Cell.Str(bytes("b"))));
 
         Row wrongValue = new Row(Arrays.asList(
-            new Cell.Str(b("wrong")),
-            new Cell.Str(b("a")),
-            new Cell.Str(b("b"))));
+            new Cell.Str(bytes("wrong")),
+            new Cell.Str(bytes("a")),
+            new Cell.Str(bytes("b"))));
 
         Row wrongPrimaryKey = new Row(Arrays.asList(
             new Cell.Null(),
             new Cell.Int(123),
-            new Cell.Str(b("b"))));
+            new Cell.Str(bytes("b"))));
 
         return Stream.of(
             Arguments.of(

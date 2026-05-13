@@ -287,7 +287,7 @@ public class Parser {
         }
     }
 
-    boolean isEnd() {
+    private boolean isEnd() {
         return pos >= source.length();
     }
 }

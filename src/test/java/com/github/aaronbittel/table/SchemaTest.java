@@ -1,6 +1,6 @@
 package com.github.aaronbittel.table;
 
-import static com.github.aaronbittel.TestBytes.b;
+import static com.github.aaronbittel.BytesUtility.bytes;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -24,14 +24,14 @@ class SchemaTest {
     Row sourceRow = new Row(
         List.of(
             new Cell.Int(123),
-            new Cell.Str(b("a")),
-            new Cell.Str(b("b"))
+            new Cell.Str(bytes("a")),
+            new Cell.Str(bytes("b"))
         )
     );
 
     @Test
     void encode_row_key_returns_expected_byte_array() {
-        byte[] expectedEncodedKey = new byte[]{
+        byte[] expectedEncodedKey = {
             'l', 'i', 'n', 'k', 0, 1, 0, 0, 0, 'a', 1, 0, 0, 0, 'b'
         };
         assertThat(sourceRow.encodeKey(schema)).isEqualTo(expectedEncodedKey);
@@ -39,16 +39,14 @@ class SchemaTest {
 
     @Test
     void encode_row_val_returns_expected_byte_array() {
-        byte[] expectedEncodedVal = new byte[]{123, 0, 0, 0, 0, 0, 0, 0};
+        byte[] expectedEncodedVal = { 123, 0, 0, 0, 0, 0, 0, 0 };
         assertThat(sourceRow.encodeVal(schema)).isEqualTo(expectedEncodedVal);
     }
 
     @Test
     void row_decode_key_and_value_produces_expected_row() {
-        byte[] encodedKey = new byte[]{
-            'l', 'i', 'n', 'k', 0, 1, 0, 0, 0, 'a', 1, 0, 0, 0, 'b'
-        };
-        byte[] encodedVal = new byte[]{123, 0, 0, 0, 0, 0, 0, 0};
+        byte[] encodedKey = { 'l', 'i', 'n', 'k', 0, 1, 0, 0, 0, 'a', 1, 0, 0, 0, 'b' };
+        byte[] encodedVal = { 123, 0, 0, 0, 0, 0, 0, 0 };
 
         Row row = schema.newRow();
         row.decodeKey(schema, encodedKey);
