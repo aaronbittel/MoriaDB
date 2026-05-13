@@ -10,3 +10,7 @@ build
 .idea/
 .project
 *.db
+
+.classpath
+.settings/
+bin/

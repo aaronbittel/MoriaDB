@@ -35,13 +35,11 @@ public class Row {
         for (Integer pkIdx : schema.primaryKeys()) {
             Cell cell = cells[pkIdx];
             Column column = columns.get(pkIdx);
-            if (cell == null || column.type() != cell.type()) {
+            if (column.type() != cell.type()) {
                 throw new IllegalArgumentException(
                     String.format(
                         "Expected schema type '%s' for column '%s', but got '%s'",
-                        column.type(),
-                        column.name(),
-                        cell == null ? "null" : cell.type()));
+                        column.type(), column.name(), cell.type()));
             }
             cell.encode(baos);
         }
@@ -101,6 +99,8 @@ public class Row {
             Cell cell = switch (column.type()) {
                 case INT -> Cell.Int.decode(bais);
                 case STR -> Cell.Str.decode(bais);
+                case NULL -> throw new IllegalArgumentException(
+                    "Key column '" + column.name() + "' is 'NULL'");
             };
             cells[pkIdx] = cell;
         }
@@ -122,6 +122,8 @@ public class Row {
             Cell cell = switch (column.type()) {
                 case INT -> Cell.Int.decode(bais);
                 case STR -> Cell.Str.decode(bais);
+                case NULL -> throw new IllegalArgumentException(
+                    "Value column '" + column.name() + "' is 'NULL'");
             };
             cells[i] = cell;
         }

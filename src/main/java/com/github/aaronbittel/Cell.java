@@ -9,7 +9,7 @@ import java.util.Arrays;
 
 import com.github.aaronbittel.table.CellType;
 
-public sealed interface Cell permits Cell.Int, Cell.Str {
+public sealed interface Cell permits Cell.Int, Cell.Str, Cell.Null {
 
     void encode(ByteArrayOutputStream baos);
 
@@ -75,6 +75,22 @@ public sealed interface Cell permits Cell.Int, Cell.Str {
                 return Arrays.equals(data, otherData);
             }
             return false;
+        }
+    }
+
+    /**
+     * Represents an absent or unspecified cell value.
+     *
+     * <p>Primarily used for partial rows where a column value is intentionally omitted,
+     * such as lookup or select operations that only require the primary key while
+     * other fields remain unspecified.
+     */
+    record Null() implements Cell {
+
+        public void encode(ByteArrayOutputStream baos) {} // do nothing
+
+        public CellType type() {
+            return CellType.NULL;
         }
     }
 }

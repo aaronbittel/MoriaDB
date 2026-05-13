@@ -47,7 +47,7 @@ class DBTest {
         )
     );
 
-    Row emptyRow = new Row(Arrays.asList(null, null, null));
+    Row emptyRow = new Row(Arrays.asList(new Cell.Null(), new Cell.Null(), new Cell.Null()));
 
     Row out;
 
@@ -59,7 +59,7 @@ class DBTest {
 
         out = new Row(
             Arrays.asList(
-                null,
+                new Cell.Null(),
                 new Cell.Str(b("a")),
                 new Cell.Str(b("b"))
             )
@@ -154,7 +154,7 @@ class DBTest {
 
         Row key = new Row(
             Arrays.asList(
-                null,
+                new Cell.Null(),
                 new Cell.Str(b("a")),
                 new Cell.Str(b("b"))
             )
@@ -198,76 +198,80 @@ class DBTest {
     }
 
     private static Stream<Arguments> invalidPKRows() {
-        Row emptyRow = new Row(Arrays.asList(null, null, null));
+        Row emptyRow = new Row(Arrays.asList(
+            new Cell.Null(),
+            new Cell.Null(),
+            new Cell.Null()));
         Row missingPrimaryKey = new Row(Arrays.asList(
-                null,
+                new Cell.Null(),
                 new Cell.Str(b("a")),
-                null
-        ));
+                new Cell.Null()));
         Row wrongPrimaryKey = new Row(Arrays.asList(
-                null,
+                new Cell.Null(),
                 new Cell.Int(123),
-                new Cell.Str(b("b"))
-        ));
+                new Cell.Str(b("b"))));
         return Stream.of(
             Arguments.of(
                 emptyRow,
-                "Expected schema type 'STR' for column 'src', but got 'null'"
+                "Expected schema type 'STR' for column 'src', but got 'NULL'"
             ),
             Arguments.of(
                 missingPrimaryKey,
-                "Expected schema type 'STR' for column 'dst', but got 'null'"
+                "Expected schema type 'STR' for column 'dst', but got 'NULL'"
             ),
             Arguments.of(
                 wrongPrimaryKey,
                 "Expected schema type 'STR' for column 'src', but got 'INT'"
-            )
-        );
+            ));
     }
 
     private static Stream<Arguments> invalidInputRows() {
-        Row emptyRow = new Row(Arrays.asList(null, null, null));
+        Row emptyRow = new Row(Arrays.asList(
+            new Cell.Null(),
+            new Cell.Null(),
+            new Cell.Null()));
+
         Row missingPrimaryKey = new Row(Arrays.asList(
-                new Cell.Int(123),
-                new Cell.Str(b("a")),
-                null
-        ));
+            new Cell.Int(123),
+            new Cell.Str(b("a")),
+            new Cell.Null()));
+
         Row missingValue = new Row(Arrays.asList(
-                null,
-                new Cell.Str(b("a")),
-                new Cell.Str(b("b"))
-        ));
+            new Cell.Null(),
+            new Cell.Str(b("a")),
+            new Cell.Str(b("b"))));
+
         Row wrongValue = new Row(Arrays.asList(
-                new Cell.Str(b("wrong")),
-                new Cell.Str(b("a")),
-                new Cell.Str(b("b"))
-        ));
+            new Cell.Str(b("wrong")),
+            new Cell.Str(b("a")),
+            new Cell.Str(b("b"))));
+
         Row wrongPrimaryKey = new Row(Arrays.asList(
-                null,
-                new Cell.Int(123),
-                new Cell.Str(b("b"))
-        ));
+            new Cell.Null(),
+            new Cell.Int(123),
+            new Cell.Str(b("b"))));
+
         return Stream.of(
-                Arguments.of(
-                        emptyRow,
-                        "Expected schema type 'STR' for column 'src', but got 'null'"
-                ),
-                Arguments.of(
-                        missingPrimaryKey,
-                        "Expected schema type 'STR' for column 'dst', but got 'null'"
-                ),
-                Arguments.of(
-                        wrongPrimaryKey,
-                        "Expected schema type 'STR' for column 'src', but got 'INT'"
-                ),
-                Arguments.of(
-                        missingValue,
-                        "Expected schema type 'INT' for column 'time', but got 'null'"
-                ),
-                Arguments.of(
-                        wrongValue,
-                        "Expected schema type 'INT' for column 'time', but got 'STR'"
-                )
+            Arguments.of(
+                emptyRow,
+                "Expected schema type 'STR' for column 'src', but got 'NULL'"
+            ),
+            Arguments.of(
+                missingPrimaryKey,
+                "Expected schema type 'STR' for column 'dst', but got 'NULL'"
+            ),
+            Arguments.of(
+                wrongPrimaryKey,
+                "Expected schema type 'STR' for column 'src', but got 'INT'"
+            ),
+            Arguments.of(
+                missingValue,
+                "Expected schema type 'INT' for column 'time', but got 'NULL'"
+            ),
+            Arguments.of(
+                wrongValue,
+                "Expected schema type 'INT' for column 'time', but got 'STR'"
+            )
         );
     }
 }
