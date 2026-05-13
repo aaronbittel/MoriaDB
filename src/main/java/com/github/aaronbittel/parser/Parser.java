@@ -72,26 +72,19 @@ public class Parser {
         return Optional.of(source.substring(start, end));
     }
 
-    // TODO: simplify see tryPunctuation
     public boolean tryKeyword(String keyword) {
         skipWhitespace();
 
-        int start = pos;
+        if (keyword.length() > remainingLength()) return false;
 
-        while (!isSeparator(current())) {
-            advance();
-        }
+        String candidate = source.substring(pos, pos + keyword.length());
 
-        int end = pos;
+        if (!keyword.equalsIgnoreCase(candidate)) return false;
+        if (!isSeparator(source.charAt(pos + keyword.length()))) return false;
 
-        String candidate = source.substring(start, end);
+        pos += keyword.length();
 
-        if (keyword.equalsIgnoreCase(candidate)) {
-            return true;
-        }
-
-        pos = start;
-        return false;
+        return true;
     }
 
     public Cell parseValue() {
@@ -169,11 +162,15 @@ public class Parser {
     private boolean tryPunctuation(String punct) {
         skipWhitespace();
 
-        if (punct.length() > source.length() - pos) return false;
+        if (punct.length() > remainingLength()) return false;
         if (!punct.equals(source.substring(pos, pos + punct.length()))) return false;
 
         pos += punct.length();
         return true;
+    }
+
+    private int remainingLength() {
+        return source.length() - pos;
     }
 
     private static boolean isSeparator(char c) {
