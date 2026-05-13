@@ -2,6 +2,8 @@ package com.github.aaronbittel.parser;
 
 import java.util.Optional;
 
+import com.github.aaronbittel.Cell;
+
 public class Parser {
 
     private final String source;
@@ -48,6 +50,63 @@ public class Parser {
 
         pos = start;
         return false;
+    }
+
+    public Cell parseValue() {
+        skipWhitespace();
+
+        char c = current();
+        if (c == '"' || c == '\'') {
+            return parseString();
+        } else if (Character.isDigit(c) || c == '+' || c == '-') {
+            return parseInt();
+        } else {
+            throw new IllegalArgumentException(
+                "Illegal character at pos=" + pos + ". Expected 'String' or 'Int'");
+        }
+    }
+
+    private Cell parseString() {
+        StringBuilder sb = new StringBuilder();
+
+        char startingQuote = current();
+        advance();
+
+        while (!isEnd() && current() != startingQuote) {
+            char cur = current();
+            switch (cur) {
+                case '\\' -> {
+                    advance();
+                    char next = current();
+                    if (next == '\\' || next == '\"' || next == '\'') {
+                        sb.append(next);
+                    } else {
+                        throw new IllegalArgumentException(
+                            "Unknown escape sequence " + "\\" + next);
+                    }
+                }
+                case '\'', '\"' -> throw new IllegalArgumentException(
+                    "Quotes '//'', '\"' inside of strings must be escaped"
+                );
+                default -> sb.append(cur);
+            }
+            advance();
+        }
+
+        if (current() != startingQuote) {
+            throw new IllegalArgumentException("Unterminated string literal");
+        }
+
+        return new Cell.Str(sb.toString().getBytes());
+    }
+
+    private Cell parseInt() {
+        int start = pos;
+        do {
+            advance();
+        } while (Character.isDigit(current()));
+        int end = pos;
+        return new Cell.Int(Long.parseLong(source.substring(start, end)));
     }
 
     private static boolean isSeparator(char c) {

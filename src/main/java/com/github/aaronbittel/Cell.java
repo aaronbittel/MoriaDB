@@ -76,6 +76,11 @@ public sealed interface Cell permits Cell.Int, Cell.Str, Cell.Null {
             }
             return false;
         }
+
+        @Override
+        public String toString() {
+            return new String(data);
+        }
     }
 
     /**
