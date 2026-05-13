@@ -13,6 +13,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import com.github.aaronbittel.Cell;
+import com.github.aaronbittel.table.CellType;
+import com.github.aaronbittel.table.Column;
 
 class ParserTest {
 
@@ -178,5 +180,127 @@ class ParserTest {
         assertThatExceptionOfType(IllegalArgumentException.class)
             .as(description)
             .isThrownBy(parser::parseSelect);
+    }
+
+    @ParameterizedTest
+    @MethodSource("validCreateTableStatements")
+    void parses_valid_create_table_statements(String stmt, StmtCreateTable expected) {
+
+        Parser parser = new Parser(stmt);
+        assertThat(parser.parseCreateTable()).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidCreateTableStatements")
+    void throws_exception_for_invalid_create_table_statements(
+        String stmt, String description) {
+
+        Parser parser = new Parser(stmt);
+        assertThatExceptionOfType(IllegalArgumentException.class)
+            .as(description)
+            .isThrownBy(parser::parseCreateTable);
+    }
+
+    static Stream<Arguments> validCreateTableStatements() {
+        return Stream.of(
+            Arguments.of(
+                """
+                create table t (
+                    a int64,
+                    b string,
+                    c string,
+                    primary key (b, c)
+                );
+                """,
+                new StmtCreateTable(
+                    "t",
+                    List.of(
+                        new Column("a", CellType.INT),
+                        new Column("b", CellType.STR),
+                        new Column("c", CellType.STR)
+                    ),
+                    List.of("b", "c"))),
+            Arguments.of(
+                """
+                create TABLE table (
+                    a int64,
+                    primary key (a)
+                );
+                """,
+                new StmtCreateTable(
+                    "table",
+                    List.of(new Column("a", CellType.INT)),
+                    List.of("a")))
+        );
+    }
+
+    static Stream<Arguments> invalidCreateTableStatements() {
+        return Stream.of(
+            Arguments.of(
+                """
+                table t (
+                    c string,
+                    primary key (c)
+                );
+                """,
+                "No 'create' keyword"),
+            Arguments.of(
+                """
+                create table (
+                    c string,
+                    primary key (c)
+                );
+                """,
+                "Missing table name"),
+            Arguments.of(
+                """
+                create table t (
+                    primary key (c)
+                );
+                """,
+                "Missing column name"),
+            Arguments.of(
+                """
+                create table t (
+                    c asdf,
+                    primary key (c)
+                );
+                """,
+                "Unknown column type"),
+            Arguments.of(
+                """
+                create table t (
+                    c int64,
+                    primary key
+                );
+                """,
+                "Missing primary key"),
+            Arguments.of(
+                """
+                create table t (
+                    c int64,
+                    primary key (b)
+                );
+                """,
+                "Provided primary key column does not exist"),
+            Arguments.of(
+                """
+                create table t (
+                    c int64,
+                    c string,
+                    primary key (c)
+                );
+                """,
+                "Duplicated column name"),
+            Arguments.of(
+                """
+                create table t (
+                    c int64,
+                    d string,
+                    primary key (c, d, c)
+                );
+                """,
+                "Duplicated primary key")
+        );
     }
 }

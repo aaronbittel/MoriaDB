@@ -1,10 +1,14 @@
 package com.github.aaronbittel.parser;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import com.github.aaronbittel.Cell;
+import com.github.aaronbittel.table.CellType;
+import com.github.aaronbittel.table.Column;
 
 public class Parser {
 
@@ -15,29 +19,97 @@ public class Parser {
         this.source = source;
     }
 
-    public StmtSelect parseSelect() {
-        if (!tryKeyword("SELECT")) {
-            throw new IllegalArgumentException("Expected 'SELECT' keyword");
+    public StmtCreateTable parseCreateTable() {
+        expectKeyword("CREATE");
+        expectKeyword("TABLE");
+
+        String tableName = expectName("Create Table Statement must have a tableName");
+
+        expectPunctuation("(", "Missing '(' for columns");
+
+        List<Column> columns = new ArrayList<>();
+
+        do {
+            String columnName = expectName("Expected column name");
+            CellType type = CellType.of(expectName("Expected column type"));
+            expectPunctuation(",", "Expected ',' after column type");
+            columns.add(new Column(columnName, type));
+        } while (!tryKeyword("primary key"));
+
+        Set<String> seen = new HashSet<>();
+        Set<String> duplicates = new HashSet<>();
+
+        for (Column column : columns) {
+            if (!seen.add(column.name())) {
+                duplicates.add(column.name());
+            }
         }
 
+        if (!duplicates.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Columns '%s' are duplicated".formatted(String.join(", ", duplicates)));
+        }
+
+        expectPunctuation("(", "Expected '(' for primary keys");
+
+        List<String> primaryKeys = new ArrayList<>();
+
+        do {
+            String primaryKey = expectName("Expecting at least one primary key column");
+
+            boolean valid = false;
+            for (Column column : columns) {
+                if (column.name().equals(primaryKey)) {
+                    valid = true;
+                    break;
+                }
+            }
+            if (!valid) {
+                throw new IllegalArgumentException(
+                    "Primary Key '%s' was provided, but there is no such column"
+                        .formatted(primaryKey));
+            }
+
+            primaryKeys.add(primaryKey);
+        } while (tryPunctuation(","));
+
+        seen = new HashSet<>();
+        duplicates = new HashSet<>();
+
+        for (String pk : primaryKeys) {
+            if (!seen.add(pk)) {
+                duplicates.add(pk);
+            }
+        }
+
+        if (!duplicates.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Primary Keys '%s' are duplicated"
+                    .formatted(String.join(", ", duplicates)));
+        }
+
+        expectPunctuation(")", "Expected ')' to close primary key list");
+        expectPunctuation(")", "Expected ')' to close Create Table Statement");
+        expectPunctuation(";", "Expected ';' at the end of statement");
+
+        return new StmtCreateTable(tableName, columns, primaryKeys);
+    }
+
+    public StmtSelect parseSelect() {
+        expectKeyword("SELECT");
+
         List<String> columns = new ArrayList<>();
-        String columnName = tryName().orElseThrow(() ->
-            new IllegalArgumentException("At least one column must be selected"));
+        String columnName = expectName("At least one column must be selected");
         columns.add(columnName);
 
         while (tryPunctuation(",")) {
-            columnName = tryName().orElseThrow(() ->
-                new IllegalArgumentException(
-                    "trailing ',' is not allowed in columns list"));
+            columnName = expectName("trailing ',' is not allowed in columns list");
             columns.add(columnName);
         }
 
-        if (!tryKeyword("FROM")) {
-            throw new IllegalArgumentException("Expected 'FROM' keyword");
-        }
+        expectKeyword("FROM");
 
-        String tableName = tryName().orElseThrow(() ->
-            new IllegalArgumentException("No table name provided"));
+        String tableName = expectName("No table name provided");
 
         List<NamedCell> namedCells = new ArrayList<>();
 
@@ -47,9 +119,7 @@ public class Parser {
             } while (tryKeyword("AND"));
         }
 
-        if (!tryPunctuation(";")) {
-            throw new IllegalArgumentException("Expected ';' at the end of statement");
-        }
+        expectPunctuation(";", "Expected ';' at the end of statement");
 
         return new StmtSelect(tableName, columns, namedCells);
     }
@@ -167,6 +237,22 @@ public class Parser {
 
         pos += punct.length();
         return true;
+    }
+
+    private String expectName(String msg) {
+        return tryName().orElseThrow(() -> new IllegalArgumentException(msg));
+    }
+
+    private void expectKeyword(String keyword) {
+        if (!tryKeyword(keyword)) {
+            throw new IllegalArgumentException("Expected '" + keyword + "' keyword");
+        }
+    }
+
+    private void expectPunctuation(String punct, String msg) {
+        if (!tryPunctuation(punct)) {
+            throw new IllegalArgumentException(msg);
+        }
     }
 
     private int remainingLength() {
