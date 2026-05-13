@@ -1,10 +1,11 @@
 package com.github.aaronbittel.table;
 
-import com.github.aaronbittel.Cell;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 import java.util.List;
+
+import com.github.aaronbittel.Cell;
 
 public class Row {
 

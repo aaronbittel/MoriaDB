@@ -3,9 +3,11 @@ package com.github.aaronbittel.table;
 import static com.github.aaronbittel.TestBytes.b;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.github.aaronbittel.Cell;
 import java.util.List;
+
 import org.junit.jupiter.api.Test;
+
+import com.github.aaronbittel.Cell;
 
 class SchemaTest {
 

@@ -4,22 +4,24 @@ import static com.github.aaronbittel.TestBytes.b;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-import com.github.aaronbittel.table.CellType;
-import com.github.aaronbittel.table.Column;
-import com.github.aaronbittel.table.Row;
-import com.github.aaronbittel.table.Schema;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import com.github.aaronbittel.table.CellType;
+import com.github.aaronbittel.table.Column;
+import com.github.aaronbittel.table.Row;
+import com.github.aaronbittel.table.Schema;
 
 class DBTest {
 

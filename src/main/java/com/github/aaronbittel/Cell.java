@@ -2,11 +2,12 @@ package com.github.aaronbittel;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
-import com.github.aaronbittel.table.CellType;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+
+import com.github.aaronbittel.table.CellType;
 
 public sealed interface Cell permits Cell.Int, Cell.Str {
 

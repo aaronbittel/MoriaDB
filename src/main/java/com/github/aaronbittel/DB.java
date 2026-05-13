@@ -1,9 +1,10 @@
 package com.github.aaronbittel;
 
-import com.github.aaronbittel.table.Row;
-import com.github.aaronbittel.table.Schema;
 import java.io.IOException;
 import java.util.Optional;
+
+import com.github.aaronbittel.table.Row;
+import com.github.aaronbittel.table.Schema;
 
 public class DB {
 
