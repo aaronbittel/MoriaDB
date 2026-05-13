@@ -5,6 +5,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import java.io.DataInput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.Objects;
@@ -95,7 +96,7 @@ public record Entry(BytesKey key, byte[] value, boolean deleted) {
                 });
 
         String valueStr = printable
-                ? new String(value)
+                ? new String(value, StandardCharsets.UTF_8)
                 : HexFormat.of().formatHex(value);
 
         return String.format(

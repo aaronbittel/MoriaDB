@@ -1,6 +1,7 @@
 plugins {
     application
     checkstyle
+    pmd
 }
 
 application {
@@ -46,6 +47,12 @@ checkstyle {
 }
 
 tasks.withType<JavaCompile> {
-    options.compilerArgs.add("-Xlint")
+    options.compilerArgs.add("-Xlint:all")
     options.compilerArgs.add("-Werror")
+}
+
+pmd {
+    toolVersion = "7.24.0"
+    isConsoleOutput = true
+    ruleSetFiles = files("config/pmd/pmd.xml")
 }

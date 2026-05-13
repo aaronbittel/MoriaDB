@@ -84,9 +84,9 @@ public class Parser {
 
         int end = pos;
 
-        String candidate = source.substring(start, end).toUpperCase();
+        String candidate = source.substring(start, end);
 
-        if (keyword.toUpperCase().equals(candidate)) {
+        if (keyword.equalsIgnoreCase(candidate)) {
             return true;
         }
 

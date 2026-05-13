@@ -11,7 +11,5 @@ public class Moria {
         kv.set("another key".getBytes(), "another value".getBytes());
         kv.delete("second key".getBytes());
         kv.close();
-
-        int x = 2;
     }
 }

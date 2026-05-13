@@ -5,6 +5,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import com.github.aaronbittel.table.CellType;
@@ -17,6 +18,7 @@ public sealed interface Cell permits Cell.Int, Cell.Str, Cell.Null {
 
     record Int(long value) implements Cell {
 
+        @Override
         public void encode(ByteArrayOutputStream baos) {
             ByteBuffer buf = ByteBuffer.allocate(Long.BYTES).order(LITTLE_ENDIAN);
             buf.putLong(value);
@@ -43,6 +45,7 @@ public sealed interface Cell permits Cell.Int, Cell.Str, Cell.Null {
 
     record Str(byte[] data) implements Cell {
 
+        @Override
         public void encode(ByteArrayOutputStream baos) {
             ByteBuffer buf = ByteBuffer
                 .allocate(Integer.BYTES + data.length)
@@ -84,7 +87,7 @@ public sealed interface Cell permits Cell.Int, Cell.Str, Cell.Null {
 
         @Override
         public String toString() {
-            return new String(data);
+            return new String(data, StandardCharsets.UTF_8);
         }
     }
 
@@ -97,8 +100,10 @@ public sealed interface Cell permits Cell.Int, Cell.Str, Cell.Null {
      */
     record Null() implements Cell {
 
+        @Override
         public void encode(ByteArrayOutputStream baos) {} // do nothing
 
+        @Override
         public CellType type() {
             return CellType.NULL;
         }

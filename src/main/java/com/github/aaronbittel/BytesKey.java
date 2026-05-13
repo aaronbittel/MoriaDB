@@ -1,5 +1,6 @@
 package com.github.aaronbittel;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.stream.IntStream;
@@ -34,7 +35,7 @@ public record BytesKey(byte[] data) {
                 return b >= 32 && b <= 126;
             });
         if (printable) {
-            return new String(data);
+            return new String(data, StandardCharsets.UTF_8);
         }
         return String.format(
             "{len=%d, data=%s}",

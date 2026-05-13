@@ -6,7 +6,7 @@ import java.io.RandomAccessFile;
 
 public class Log implements AutoCloseable {
     private final String filename;
-    private RandomAccessFile file = null;
+    private RandomAccessFile file;
 
     public Log(String filename) {
         this.filename = filename;
