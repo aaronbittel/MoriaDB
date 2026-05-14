@@ -319,6 +319,79 @@ class ParserTest {
             .isThrownBy(parser::parseUpdate);
     }
 
+    static Stream<Arguments> validDeleteStatements() {
+        return Stream.of(
+            Arguments.of(
+                "delete from t_asd0f where id = 1 and type = 'x';",
+                new StmtDelete(
+                    "t_asd0f",
+                    List.of(
+                        new NamedCell("id", new Cell.Int(1)),
+                        new NamedCell("type", new Cell.Str(bytes("x")))
+                    )
+                )
+            ),
+            Arguments.of(
+                "DELETE   FROM   tableXYZ WHERE key1='abc';",
+                new StmtDelete(
+                    "tableXYZ",
+                    List.of(
+                        new NamedCell("key1", new Cell.Str(bytes("abc")))
+                    )
+                )
+            )
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("validDeleteStatements")
+    void parses_valid_delete_statements(String stmt, StmtDelete expected) {
+        Parser parser = new Parser(stmt);
+        assertThat(parser.parseDelete()).isEqualTo(expected);
+    }
+
+    static Stream<Arguments> invalidDeleteStatements() {
+        return Stream.of(
+            Arguments.of(
+                "from t where id = 1;",
+                "Missing 'delete' keyword"
+            ),
+            Arguments.of(
+                "delete t where id = 1;",
+                "Missing 'from' keyword"
+            ),
+            Arguments.of(
+                "delete from where id = 1;",
+                "Missing table name"
+            ),
+            Arguments.of(
+                "delete from t;",
+                "Missing WHERE clause"
+            ),
+            Arguments.of(
+                "delete from t where;",
+                "Missing conditions"
+            ),
+            Arguments.of(
+                "delete from t where id = ;",
+                "Invalid value"
+            ),
+            Arguments.of(
+                "delete from t where = 1;",
+                "Missing column name"
+            )
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidDeleteStatements")
+    void throws_exception_for_invalid_delete_statements(String stmt, String description) {
+        Parser parser = new Parser(stmt);
+        assertThatExceptionOfType(IllegalArgumentException.class)
+            .as(description)
+            .isThrownBy(parser::parseDelete);
+    }
+
     static Stream<Arguments> validCreateTableStatements() {
         return Stream.of(
             Arguments.of(

@@ -141,6 +141,24 @@ public class Parser {
         return new StmtUpdate(tableName, keys, values);
     }
 
+    public StmtDelete parseDelete() {
+        expectKeyword("DELETE");
+        expectKeyword("FROM");
+
+        String tableName = expectName("Missing table name");
+
+        expectKeyword("WHERE");
+
+        List<NamedCell> keys = new ArrayList<>();
+        do {
+            keys.add(parseAssignment());
+        } while (tryKeyword("AND"));
+
+        expectPunctuation(";", "Expected ';' at the end of delete statement");
+
+        return new StmtDelete(tableName, keys);
+    }
+
     public StmtSelect parseSelect() {
         expectKeyword("SELECT");
 
