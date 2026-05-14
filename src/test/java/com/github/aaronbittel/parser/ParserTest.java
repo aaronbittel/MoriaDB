@@ -201,6 +201,44 @@ class ParserTest {
             .isThrownBy(parser::parseCreateTable);
     }
 
+    static Stream<Arguments> validInsertStatements() {
+        return Stream.of(
+            Arguments.of(
+                "insert into t_asd0f values (   1, 'x', 'y');",
+                new StmtInsert("t_asd0f", List.of(
+                    new Cell.Int(1), new Cell.Str(bytes("x")), new Cell.Str(bytes("y"))
+                ))),
+            Arguments.of(
+                "INSERT   into  tableXYZ vaLUes (0   ) ;",
+                new StmtInsert("tableXYZ", List.of(new Cell.Int(0))))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("validInsertStatements")
+    void parses_valid_insert_statements(String stmt, StmtInsert expected) {
+        Parser parser = new Parser(stmt);
+        assertThat(parser.parseInsert()).isEqualTo(expected);
+    }
+
+    static Stream<Arguments> invalidInsertStatements() {
+        return Stream.of(
+            Arguments.of("into t values (1, 'x', 'y');", "Missing 'insert' keyword"),
+            Arguments.of("insert into values (1, 'x', 'y');", "Missing table name"),
+            Arguments.of("insert into t values 1, 'x', 'y');", "Missing '(' for values"),
+            Arguments.of("insert into t values (1, 'x', y');", "Invalid value")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidInsertStatements")
+    void throws_exception_for_invalid_insert_statements(String stmt, String description) {
+        Parser parser = new Parser(stmt);
+        assertThatExceptionOfType(IllegalArgumentException.class)
+            .as(description)
+            .isThrownBy(parser::parseInsert);
+    }
+
     static Stream<Arguments> validCreateTableStatements() {
         return Stream.of(
             Arguments.of(

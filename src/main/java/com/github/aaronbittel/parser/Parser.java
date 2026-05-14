@@ -95,6 +95,28 @@ public class Parser {
         return new StmtCreateTable(tableName, columns, primaryKeys);
     }
 
+    public StmtInsert parseInsert() {
+        expectKeyword("INSERT");
+        expectKeyword("INTO");
+
+        String tableName = expectName("Missing table name");
+
+        expectKeyword("VALUES");
+
+        expectPunctuation("(", "Expected '(' to start values list");
+
+        List<Cell> values = new ArrayList<>();
+        do {
+            values.add(parseValue());
+        } while (tryPunctuation(","));
+
+        expectPunctuation(")", "Expected ')' to end values list");
+
+        expectPunctuation(";", "Expected ';' at the end of statement");
+
+        return new StmtInsert(tableName, values);
+    }
+
     public StmtSelect parseSelect() {
         expectKeyword("SELECT");
 
