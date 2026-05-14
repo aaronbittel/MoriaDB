@@ -239,6 +239,86 @@ class ParserTest {
             .isThrownBy(parser::parseInsert);
     }
 
+    static Stream<Arguments> validUpdateStatements() {
+        return Stream.of(
+            Arguments.of(
+                "update t_asd0f set col1 = 1, col2 = 'x' where id = 10 AND type = 'y';",
+                new StmtUpdate(
+                    "t_asd0f",
+                    List.of(
+                        new NamedCell("id", new Cell.Int(10)),
+                        new NamedCell("type", new Cell.Str(bytes("y")))
+                    ),
+                    List.of(
+                        new NamedCell("col1", new Cell.Int(1)),
+                        new NamedCell("col2", new Cell.Str(bytes("x")))
+                    )
+                )
+            ),
+            Arguments.of(
+                "UPDATE   tableXYZ SET a=0 WHERE key1='abc';",
+                new StmtUpdate(
+                    "tableXYZ",
+                    List.of(
+                        new NamedCell("key1", new Cell.Str(bytes("abc")))
+                    ),
+                    List.of(
+                        new NamedCell("a", new Cell.Int(0))
+                    )
+                )
+            )
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("validUpdateStatements")
+    void parses_valid_update_statements(String stmt, StmtUpdate expected) {
+        Parser parser = new Parser(stmt);
+        assertThat(parser.parseUpdate()).isEqualTo(expected);
+    }
+
+    static Stream<Arguments> invalidUpdateStatements() {
+        return Stream.of(
+            Arguments.of(
+                "t set col1 = 1 where id = 10;",
+                "Missing 'update' keyword"
+            ),
+            Arguments.of(
+                "update set col1 = 1 where id = 10;",
+                "Missing table name"
+            ),
+            Arguments.of(
+                "update t col1 = 1 where id = 10;",
+                "Missing 'set' keyword"
+            ),
+            Arguments.of(
+                "update t set where id = 10;",
+                "Missing assignments in SET clause"
+            ),
+            Arguments.of(
+                "update t set col1 = 1;",
+                "Missing WHERE clause"
+            ),
+            Arguments.of(
+                "update t set col1 = where id = 10;",
+                "Invalid value in SET clause"
+            ),
+            Arguments.of(
+                "update t set col1 = 1 where id = ;",
+                "Invalid value in WHERE clause"
+            )
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidUpdateStatements")
+    void throws_exception_for_invalid_update_statements(String stmt, String description) {
+        Parser parser = new Parser(stmt);
+        assertThatExceptionOfType(IllegalArgumentException.class)
+            .as(description)
+            .isThrownBy(parser::parseUpdate);
+    }
+
     static Stream<Arguments> validCreateTableStatements() {
         return Stream.of(
             Arguments.of(

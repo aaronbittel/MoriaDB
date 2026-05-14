@@ -90,7 +90,7 @@ public class Parser {
 
         expectPunctuation(")", "Expected ')' to close primary key list");
         expectPunctuation(")", "Expected ')' to close Create Table Statement");
-        expectPunctuation(";", "Expected ';' at the end of statement");
+        expectPunctuation(";", "Expected ';' at the end of create table statement");
 
         return new StmtCreateTable(tableName, columns, primaryKeys);
     }
@@ -112,9 +112,33 @@ public class Parser {
 
         expectPunctuation(")", "Expected ')' to end values list");
 
-        expectPunctuation(";", "Expected ';' at the end of statement");
+        expectPunctuation(";", "Expected ';' at the end of insert statement");
 
         return new StmtInsert(tableName, values);
+    }
+
+    public StmtUpdate parseUpdate() {
+        expectKeyword("UPDATE");
+
+        String tableName = expectName("Missing table name");
+
+        expectKeyword("SET");
+
+        List<NamedCell> values = new ArrayList<>();
+        do {
+            values.add(parseAssignment());
+        } while (tryPunctuation(","));
+
+        expectKeyword("WHERE");
+
+        List<NamedCell> keys = new ArrayList<>();
+        do {
+            keys.add(parseAssignment());
+        } while (tryKeyword("AND"));
+
+        expectPunctuation(";", "Expected ';' at the end of update statement");
+
+        return new StmtUpdate(tableName, keys, values);
     }
 
     public StmtSelect parseSelect() {
@@ -137,11 +161,11 @@ public class Parser {
 
         if (tryKeyword("WHERE")) {
             do {
-                namedCells.add(parseEqual());
+                namedCells.add(parseAssignment());
             } while (tryKeyword("AND"));
         }
 
-        expectPunctuation(";", "Expected ';' at the end of statement");
+        expectPunctuation(";", "Expected ';' at the end of select statement");
 
         return new StmtSelect(tableName, columns, namedCells);
     }
@@ -193,7 +217,7 @@ public class Parser {
         }
     }
 
-    private NamedCell parseEqual() {
+    private NamedCell parseAssignment() {
         skipWhitespace();
         String columnName = tryName().orElseThrow(() ->
             new IllegalArgumentException("Expected identifier after WHERE clause"));
