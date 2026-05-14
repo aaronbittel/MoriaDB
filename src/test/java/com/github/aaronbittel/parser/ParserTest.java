@@ -119,7 +119,8 @@ class ParserTest {
     @ParameterizedTest
     @MethodSource("badStringCases")
     void parse_throws_expected_exception_when_string_is_illegal(
-        String value, String description) {
+        String value, String description)
+    {
 
         Parser parser = new Parser(value);
         assertThatExceptionOfType(IllegalArgumentException.class)
@@ -263,8 +264,8 @@ class ParserTest {
     @ParameterizedTest
     @MethodSource("invalidSelectStatements")
     void throws_exception_for_invalid_select_statements(
-        String stmt, String description) {
-
+        String stmt, String description)
+    {
         Parser parser = new Parser(stmt);
         assertThatExceptionOfType(IllegalArgumentException.class)
             .as(description)
@@ -282,7 +283,8 @@ class ParserTest {
     @ParameterizedTest
     @MethodSource("invalidCreateTableStatements")
     void throws_exception_for_invalid_create_table_statements(
-        String stmt, String description) {
+        String stmt, String description)
+    {
 
         Parser parser = new Parser(stmt);
         assertThatExceptionOfType(IllegalArgumentException.class)

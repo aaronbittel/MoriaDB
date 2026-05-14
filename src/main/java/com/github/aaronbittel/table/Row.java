@@ -16,7 +16,7 @@ public class Row {
         this.cells = cells.toArray(new Cell[0]);
     }
 
-    public Row(Cell[] cells) {
+    public Row(Cell[] cells) { // NOPMD
         this.cells = Arrays.copyOf(cells, cells.length);
     }
 
@@ -36,7 +36,7 @@ public class Row {
         int j = 0;
         for (int i = 0; i < cells.length; ++i) {
             if (indices.contains(i)) {
-                row.cells[j++] = cells[i];
+                row.cells[j++] = cells[i]; // NOPMD
             }
         }
         return row;

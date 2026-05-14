@@ -5,22 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import com.github.aaronbittel.parser.Parser;
-import com.github.aaronbittel.parser.StmtCreateTable;
-import com.github.aaronbittel.table.CellType;
-import com.github.aaronbittel.table.Column;
-import com.github.aaronbittel.table.Row;
-import com.github.aaronbittel.table.Schema;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +19,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import com.github.aaronbittel.parser.Parser;
+import com.github.aaronbittel.parser.StmtCreateTable;
+import com.github.aaronbittel.table.CellType;
+import com.github.aaronbittel.table.Column;
+import com.github.aaronbittel.table.Row;
+import com.github.aaronbittel.table.Schema;
 
 class DBTest {
 
@@ -176,8 +174,8 @@ class DBTest {
     @MethodSource("invalidPKRows")
     void select_throws_illegal_argument_exception_when_primary_key_is_missing(
         Row row,
-        String expectedMessage
-    ) {
+        String expectedMessage)
+    {
         assertThatExceptionOfType(IllegalArgumentException.class)
             .isThrownBy(() -> db.select(schema, row))
             .withMessage(expectedMessage);
@@ -187,8 +185,8 @@ class DBTest {
     @MethodSource("invalidPKRows")
     void delete_throws_illegal_argument_exception_when_primary_key_is_missing(
         Row row,
-        String expectedMessage
-    ) {
+        String expectedMessage)
+    {
         assertThatExceptionOfType(IllegalArgumentException.class)
             .isThrownBy(() -> db.delete(schema, row))
             .withMessage(expectedMessage);
@@ -198,8 +196,8 @@ class DBTest {
     @MethodSource("invalidInputRows")
     void insert_throws_illegal_argument_exception_when_row_is_not_complete(
         Row row,
-        String expectedMessage
-    ) {
+        String expectedMessage)
+    {
         assertThatExceptionOfType(IllegalArgumentException.class)
             .isThrownBy(() -> db.insert(schema, row))
             .withMessage(expectedMessage);
@@ -312,14 +310,14 @@ class DBTest {
         throws IOException
     {
         String createStmt =
-        """
-        create table link (
-            time int64,
-            src string,
-            dst string,
-            primary key (src, dst)
-        );
-        """;
+            """
+            create table link (
+                time int64,
+                src string,
+                dst string,
+                primary key (src, dst)
+            );
+            """;
         db.execStmt(new Parser(createStmt).parseStmt());
 
         String insertStmt = "insert into link values (123, 'bob', 'alice');";
@@ -332,10 +330,10 @@ class DBTest {
         assertThat(selectResult.values()).isEqualTo(expectedSelectRows);
 
         String updateStmt =
-        """
-        update link set time = 456
-        where dst = 'alice' and src = 'bob';
-        """;
+            """
+            update link set time = 456
+            where dst = 'alice' and src = 'bob';
+            """;
         SQLResult updateResult = db.execStmt(new Parser(updateStmt).parseStmt());
         assertThat(updateResult.updated()).isEqualTo(1);
 

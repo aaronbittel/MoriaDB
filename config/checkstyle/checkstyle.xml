@@ -106,19 +106,7 @@ Authors: Max Vetrenko, Mauryan Kansara, Ruslan Diachenko, Roman Ivanov.
         <!--         value="LITERAL_DO, LITERAL_ELSE, LITERAL_FOR, LITERAL_IF, LITERAL_WHILE"/> -->
         <!-- </module> -->
         <module name="LeftCurly">
-            <property name="id" value="LeftCurlyEol"/>
-            <property name="tokens"
-                value="ANNOTATION_DEF, CLASS_DEF, CTOR_DEF, ENUM_CONSTANT_DEF, ENUM_DEF,
-                INTERFACE_DEF, LAMBDA, LITERAL_CATCH,
-                LITERAL_DO, LITERAL_ELSE, LITERAL_FINALLY, LITERAL_FOR, LITERAL_IF,
-                LITERAL_SWITCH, LITERAL_SYNCHRONIZED, LITERAL_TRY, LITERAL_WHILE, METHOD_DEF,
-                OBJBLOCK, STATIC_INIT, RECORD_DEF, COMPACT_CTOR_DEF, SWITCH_RULE"/>
-        </module>
-        <module name="LeftCurly">
-            <property name="id" value="LeftCurlyNl"/>
-            <property name="option" value="nl"/>
-            <property name="tokens"
-                value="LITERAL_CASE, LITERAL_DEFAULT"/>
+            <property name="option" value="nlow"/>
         </module>
         <module name="SuppressionXpathSingleFilter">
             <!-- LITERAL_CASE, LITERAL_DEFAULT are reused in SWITCH_RULE  -->
@@ -325,7 +313,7 @@ Authors: Max Vetrenko, Mauryan Kansara, Ruslan Diachenko, Roman Ivanov.
         </module>
         <module name="Indentation">
             <property name="basicOffset" value="4"/>
-            <property name="braceAdjustment" value="4"/>
+            <property name="braceAdjustment" value="0"/>
             <property name="caseIndent" value="4"/>
             <property name="throwsIndent" value="4"/>
             <property name="lineWrappingIndentation" value="4"/>
@@ -355,7 +343,7 @@ Authors: Max Vetrenko, Mauryan Kansara, Ruslan Diachenko, Roman Ivanov.
 
             <property
                 name="groups"
-                value="java,javax,org,com"/>
+                value="java,javax,com,org,com.github.aaronbittel"/>
 
             <property name="option" value="top"/>
 

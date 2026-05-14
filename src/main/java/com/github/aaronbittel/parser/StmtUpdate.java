@@ -6,7 +6,8 @@ public record StmtUpdate(
     String tableName,
     List<NamedCell> keys,
     List<NamedCell> values)
-    implements Stmt {
+    implements Stmt
+{
 
     public StmtUpdate {
         keys = List.copyOf(keys);

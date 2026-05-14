@@ -7,7 +7,8 @@ public record StmtSelect(
     String tableName,
     List<String> columns,
     List<NamedCell> keys)
-    implements Stmt {
+    implements Stmt
+{
 
     public StmtSelect {
         columns = List.copyOf(columns);

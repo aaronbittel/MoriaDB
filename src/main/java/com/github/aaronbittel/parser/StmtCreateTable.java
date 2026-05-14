@@ -8,8 +8,9 @@ import com.github.aaronbittel.table.Column;
 public record StmtCreateTable(
     String tableName,
     List<Column> columns,
-    List<String> primaryKeys
-) implements Stmt {
+    List<String> primaryKeys)
+    implements Stmt
+{
 
     public StmtCreateTable {
         columns = List.copyOf(columns);

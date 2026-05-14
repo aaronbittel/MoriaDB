@@ -23,7 +23,6 @@ import com.github.aaronbittel.table.Column;
 import com.github.aaronbittel.table.Row;
 import com.github.aaronbittel.table.Schema;
 
-
 public class DB {
 
     private final KVStore kv;
@@ -80,14 +79,14 @@ public class DB {
             byte[] schemaData = mapper.writeValueAsBytes(schema);
             kv.setEx(schemaKey, schemaData, UpdateMode.INSERT);
             tables.put(tableName, schema);
-        } catch(JsonProcessingException e) {
+        } catch (JsonProcessingException e) {
             throw new IllegalStateException(
                 "Schema could not be converted to json as bytes: " + schema, e
             );
         }
 
         return SQLResult.of();
-	}
+    }
 
     private SQLResult execInsert(StmtInsert stmt) throws IOException {
         Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
@@ -99,8 +98,8 @@ public class DB {
         // TODO: What about primary keys (auto-increment), or optional fields (later)
         if (columns.size() != stmt.values().size()) {
             throw new IllegalArgumentException(
-                "Number of columns in insert statement, " +
-                "do not match up with number of columns the table has");
+                "Number of columns in insert statement, "
+                + "do not match up with number of columns the table has");
         }
 
         List<Cell> cells = new ArrayList<>(columns.size());
@@ -110,8 +109,8 @@ public class DB {
             Cell cell = stmt.values().get(i);
             if (column.type() != cell.type()) {
                 throw new IllegalArgumentException(
-                    "Expected column type '" + column.type() +
-                    "' for column '" + column.name() + "', but got '" + cell.type());
+                    "Expected column type '" + column.type()
+                    + "' for column '" + column.name() + "', but got '" + cell.type());
             }
             cells.add(cell);
         }
@@ -135,13 +134,12 @@ public class DB {
         List<Integer> indices = new ArrayList<>();
 
         // check that all selected columns exist
-        for (int i = 0; i < selectedColumns.size(); ++i) {
-            String column = selectedColumns.get(i);
+        for (String column : selectedColumns) {
             int schemaIdx = columnNames.indexOf(column);
             if (schemaIdx == -1) {
                 throw new IllegalArgumentException(
-                    "selected column '" + column +
-                    "' does not exist in table '" + stmt.tableName());
+                    "selected column '" + column
+                    + "' does not exist in table '" + stmt.tableName());
             }
             indices.add(schemaIdx);
         }
@@ -167,7 +165,9 @@ public class DB {
         for (NamedCell value : stmt.values()) {
             boolean found = false;
             for (Column column : schema.columns()) {
-                if (column.name().equals(value.column()) && column.type() == value.value().type())  {
+                if (column.name().equals(value.column())
+                    && column.type() == value.value().type())
+                {
                     found = true;
                     break;
                 }
@@ -262,9 +262,9 @@ public class DB {
                 .map(Column::name)
                 .collect(Collectors.joining(", "));
             throw new IllegalArgumentException(
-                "Currently it is necessary to provide all primary keys " +
-                "in the WHERE-clause. The following primary keys are missing: " +
-                missingPksStr);
+                "Currently it is necessary to provide all primary keys "
+                + "in the WHERE-clause. The following primary keys are missing: "
+                + missingPksStr);
         }
 
         return row;

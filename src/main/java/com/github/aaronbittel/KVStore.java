@@ -42,9 +42,12 @@ public class KVStore {
         return value == null ? Optional.empty() : Optional.of(value);
     }
 
-    public boolean setEx(byte[] key,
-                         byte[] value,
-                         UpdateMode updateMode) throws IOException {
+    public boolean setEx(
+        byte[] key,
+        byte[] value,
+        UpdateMode updateMode)
+        throws IOException
+    {
         BytesKey bytesKey = new BytesKey(key);
         byte[] oldValue = kv.get(bytesKey);
 
