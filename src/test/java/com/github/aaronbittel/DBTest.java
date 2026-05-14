@@ -5,11 +5,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.github.aaronbittel.parser.Parser;
+import com.github.aaronbittel.parser.StmtCreateTable;
+import com.github.aaronbittel.table.CellType;
+import com.github.aaronbittel.table.Column;
+import com.github.aaronbittel.table.Row;
+import com.github.aaronbittel.table.Schema;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,15 +29,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import com.github.aaronbittel.table.CellType;
-import com.github.aaronbittel.table.Column;
-import com.github.aaronbittel.table.Row;
-import com.github.aaronbittel.table.Schema;
-
 class DBTest {
+
+    ObjectMapper mapper = new ObjectMapper();
 
     static String testDB = ".test.db";
 
+    KVStore kv;
     DB db;
 
     Schema schema = new Schema(
@@ -52,7 +61,8 @@ class DBTest {
     @BeforeEach
     void setup() throws IOException {
         Files.deleteIfExists(Path.of(testDB));
-        db = new DB(new KVStore(new Log(testDB)));
+        kv = new KVStore(new Log(testDB));
+        db = new DB(kv);
         db.open();
 
         out = new Row(
@@ -271,5 +281,78 @@ class DBTest {
                 "Expected schema type 'INT' for column 'time', but got 'STR'"
             )
         );
+    }
+
+    @Test
+    void creates_table_and_persists_schema() throws Exception {
+        String tableName = "link";
+        List<Column> columns = List.of(
+            new Column("time", CellType.INT),
+            new Column("src", CellType.STR),
+            new Column("dst", CellType.STR)
+        );
+
+        StmtCreateTable createTable = new StmtCreateTable(
+            tableName,
+            columns,
+            List.of("src", "dst"));
+
+        db.execStmt(createTable);
+
+        Schema expected = new Schema(tableName, columns, List.of(1, 2));
+
+        byte[] schemaBytes = kv.get(bytes("@schema_link")).orElseThrow();
+        Schema actual = mapper.readValue(schemaBytes, Schema.class);
+        assertThat(actual).isEqualTo(expected);
+        assertThat(db.getSchema(tableName)).hasValue(expected);
+    }
+
+    @Test
+    void creates_table_and_performs_crud_operations_with_persistence()
+        throws IOException
+    {
+        String createStmt =
+        """
+        create table link (
+            time int64,
+            src string,
+            dst string,
+            primary key (src, dst)
+        );
+        """;
+        db.execStmt(new Parser(createStmt).parseStmt());
+
+        String insertStmt = "insert into link values (123, 'bob', 'alice');";
+        SQLResult insertResult = db.execStmt(new Parser(insertStmt).parseStmt());
+        assertThat(insertResult.updated()).isEqualTo(1);
+
+        String selectStmt = "select time from link where dst = 'alice' and src = 'bob';";
+        SQLResult selectResult = db.execStmt(new Parser(selectStmt).parseStmt());
+        List<Row> expectedSelectRows = List.of(new Row(List.of(new Cell.Int(123))));
+        assertThat(selectResult.values()).isEqualTo(expectedSelectRows);
+
+        String updateStmt =
+        """
+        update link set time = 456
+        where dst = 'alice' and src = 'bob';
+        """;
+        SQLResult updateResult = db.execStmt(new Parser(updateStmt).parseStmt());
+        assertThat(updateResult.updated()).isEqualTo(1);
+
+        selectStmt = "select time from link where dst = 'alice' and src = 'bob';";
+        selectResult = db.execStmt(new Parser(selectStmt).parseStmt());
+        expectedSelectRows = List.of(new Row(List.of(new Cell.Int(456))));
+        assertThat(selectResult.values()).isEqualTo(expectedSelectRows);
+
+        db.close();
+        db.open();
+
+        String deleteStmt = "delete from link where src = 'bob' and dst = 'alice';";
+        SQLResult deleteResult = db.execStmt(new Parser(deleteStmt).parseStmt());
+        assertThat(deleteResult.updated()).isEqualTo(1);
+
+        selectStmt = "select time from link where dst = 'alice' and src = 'bob';";
+        selectResult = db.execStmt(new Parser(selectStmt).parseStmt());
+        assertThat(selectResult.values()).isEmpty();
     }
 }

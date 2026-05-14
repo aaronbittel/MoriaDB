@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.github.aaronbittel.Cell;
 
@@ -15,8 +16,30 @@ public class Row {
         this.cells = cells.toArray(new Cell[0]);
     }
 
+    public Row(Cell[] cells) {
+        this.cells = Arrays.copyOf(cells, cells.length);
+    }
+
     public Row(int size) {
         cells = new Cell[size];
+    }
+
+    public void set(int index, Cell cell) {
+        if (index < 0 || index >= cells.length) {
+            throw new IndexOutOfBoundsException();
+        }
+        cells[index] = cell;
+    }
+
+    public Row selectSubset(List<Integer> indices) {
+        Row row = new Row(indices.size());
+        int j = 0;
+        for (int i = 0; i < cells.length; ++i) {
+            if (indices.contains(i)) {
+                row.cells[j++] = cells[i];
+            }
+        }
+        return row;
     }
 
     public byte[] encodeKey(Schema schema) {
@@ -140,5 +163,12 @@ public class Row {
             return Arrays.equals(cells, other.cells);
         }
         return false;
+    }
+
+    @Override
+    public String toString() {
+        return Arrays.stream(cells)
+            .map(Cell::toString)
+            .collect(Collectors.joining(", "));
     }
 }
