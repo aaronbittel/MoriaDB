@@ -9,7 +9,7 @@ public record StmtCreateTable(
     String tableName,
     List<Column> columns,
     List<String> primaryKeys
-) {
+) implements Stmt {
 
     public StmtCreateTable {
         columns = List.copyOf(columns);

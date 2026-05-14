@@ -19,6 +19,25 @@ public class Parser {
         this.source = source;
     }
 
+    public Stmt parseStmt() {
+        if (peekKeyword("CREATE", "TABLE")) {
+            return parseCreateTable();
+        }
+        if (peekKeyword("SELECT")) {
+            return parseSelect();
+        }
+        if (peekKeyword("INSERT")) {
+            return parseInsert();
+        }
+        if (peekKeyword("UPDATE")) {
+            return parseUpdate();
+        }
+        if (peekKeyword("DELETE")) {
+            return parseDelete();
+        }
+        throw new IllegalArgumentException("Unknown statement");
+    }
+
     public StmtCreateTable parseCreateTable() {
         expectKeyword("CREATE");
         expectKeyword("TABLE");
@@ -204,6 +223,22 @@ public class Parser {
         int end = pos;
 
         return Optional.of(source.substring(start, end));
+    }
+
+    public boolean peekKeyword(String... keywords) {
+        int saved = pos;
+
+        boolean found = true;
+
+        for (String keyword : keywords) {
+            if (!tryKeyword(keyword)) {
+                found = false;
+                break;
+            }
+        }
+
+        pos = saved;
+        return found;
     }
 
     public boolean tryKeyword(String keyword) {

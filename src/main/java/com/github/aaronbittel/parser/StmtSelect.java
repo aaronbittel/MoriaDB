@@ -3,7 +3,11 @@ package com.github.aaronbittel.parser;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public record StmtSelect(String tableName, List<String> columns, List<NamedCell> keys) {
+public record StmtSelect(
+    String tableName,
+    List<String> columns,
+    List<NamedCell> keys)
+    implements Stmt {
 
     public StmtSelect {
         columns = List.copyOf(columns);

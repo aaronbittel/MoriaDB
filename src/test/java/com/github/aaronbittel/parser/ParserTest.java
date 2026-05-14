@@ -127,6 +127,95 @@ class ParserTest {
             .isThrownBy(parser::parseValue);
     }
 
+    static Stream<Arguments> validStatements() {
+        return Stream.of(
+            Arguments.of(
+                "insert into t values (1, 'x');",
+                new StmtInsert(
+                    "t",
+                    List.of(new Cell.Int(1), new Cell.Str(bytes("x"))))),
+            Arguments.of(
+                "update t set value = 123 where id = 1;",
+                new StmtUpdate(
+                    "t",
+                    List.of(new NamedCell("id", new Cell.Int(1))),
+                    List.of(new NamedCell("value", new Cell.Int(123))))),
+            Arguments.of(
+                "delete from t where id = 5;",
+                new StmtDelete(
+                    "t",
+                    List.of(new NamedCell("id", new Cell.Int(5))))),
+            Arguments.of(
+                """
+                create table t (
+                    a int64,
+                    b string,
+                    c string,
+                    primary key (b, c)
+                );
+                """,
+                new StmtCreateTable(
+                    "t",
+                    List.of(
+                        new Column("a", CellType.INT),
+                        new Column("b", CellType.STR),
+                        new Column("c", CellType.STR)
+                    ),
+                    List.of("b", "c"))),
+            Arguments.of(
+                "select a,b from t where c=1 and d='e';",
+                new StmtSelect(
+                    "t",
+                    List.of("a", "b"),
+                    List.of(
+                        new NamedCell("c", new Cell.Int(1)),
+                        new NamedCell("d", new Cell.Str(bytes("e"))))))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("validStatements")
+    void parses_valid_statements(String stmt, Object expected) {
+        Parser parser = new Parser(stmt);
+        assertThat(parser.parseStmt()).isEqualTo(expected);
+    }
+
+    static Stream<Arguments> invalidStatements() {
+        return Stream.of(
+            Arguments.of(
+                "", "Empty statement"),
+            Arguments.of(
+                "foobar something;", "Unknown statement keyword"),
+            Arguments.of(
+                "insert t values (1);", "Invalid insert statement"),
+            Arguments.of(
+                "update t value = 1 where id = 1;", "Invalid update statement"),
+            Arguments.of(
+                "delete t where id = 1;", "Invalid delete statement"),
+            Arguments.of(
+                """
+                create table t (
+                    a int64,
+                    ,
+                    c string,
+                    primary key (b, c)
+                );
+                """, "Invalid create table statement"),
+            Arguments.of(
+                "select a,b from t where c=1 d='e';", "Invalid select statement")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidStatements")
+    void throws_exception_for_invalid_statements(String stmt, String description) {
+        Parser parser = new Parser(stmt);
+
+        assertThatExceptionOfType(IllegalArgumentException.class)
+            .as(description)
+            .isThrownBy(parser::parseStmt);
+    }
+
     static Stream<Arguments> validSelectStatements() {
         return Stream.of(
             Arguments.of(

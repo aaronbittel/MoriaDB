@@ -2,7 +2,7 @@ package com.github.aaronbittel.parser;
 
 import java.util.List;
 
-public record StmtDelete(String tableName, List<NamedCell> keys) {
+public record StmtDelete(String tableName, List<NamedCell> keys) implements Stmt {
 
     public StmtDelete {
         keys = List.copyOf(keys);

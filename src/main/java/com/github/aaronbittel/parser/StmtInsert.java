@@ -5,7 +5,7 @@ import java.util.stream.Collectors;
 
 import com.github.aaronbittel.Cell;
 
-public record StmtInsert(String tableName, List<Cell> values) {
+public record StmtInsert(String tableName, List<Cell> values) implements Stmt {
 
     public StmtInsert {
         values = List.copyOf(values);

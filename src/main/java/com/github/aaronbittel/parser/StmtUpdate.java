@@ -2,7 +2,11 @@ package com.github.aaronbittel.parser;
 
 import java.util.List;
 
-public record StmtUpdate(String tableName, List<NamedCell> keys, List<NamedCell> values) {
+public record StmtUpdate(
+    String tableName,
+    List<NamedCell> keys,
+    List<NamedCell> values)
+    implements Stmt {
 
     public StmtUpdate {
         keys = List.copyOf(keys);
