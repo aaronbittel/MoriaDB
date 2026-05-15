@@ -556,33 +556,7 @@ class ParserTest {
                     primary key
                 );
                 """,
-                "Missing primary key"),
-            Arguments.of(
-                """
-                create table t (
-                    c int64,
-                    primary key (b)
-                );
-                """,
-                "Provided primary key column does not exist"),
-            Arguments.of(
-                """
-                create table t (
-                    c int64,
-                    c string,
-                    primary key (c)
-                );
-                """,
-                "Duplicated column name"),
-            Arguments.of(
-                """
-                create table t (
-                    c int64,
-                    d string,
-                    primary key (c, d, c)
-                );
-                """,
-                "Duplicated primary key")
+                "Missing primary key")
         );
     }
 }

@@ -1,10 +1,8 @@
 package com.github.aaronbittel.parser;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import com.github.aaronbittel.Cell;
 import com.github.aaronbittel.table.CellType;
@@ -55,57 +53,14 @@ public class Parser {
             columns.add(new Column(columnName, type));
         } while (!tryKeyword("primary key"));
 
-        Set<String> seen = new HashSet<>();
-        Set<String> duplicates = new HashSet<>();
-
-        for (Column column : columns) {
-            if (!seen.add(column.name())) {
-                duplicates.add(column.name());
-            }
-        }
-
-        if (!duplicates.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Columns '%s' are duplicated".formatted(String.join(", ", duplicates)));
-        }
-
         expectPunctuation("(", "Expected '(' for primary keys");
 
         List<String> primaryKeys = new ArrayList<>();
 
         do {
             String primaryKey = expectName("Expecting at least one primary key column");
-
-            boolean valid = false;
-            for (Column column : columns) {
-                if (column.name().equals(primaryKey)) {
-                    valid = true;
-                    break;
-                }
-            }
-            if (!valid) {
-                throw new IllegalArgumentException(
-                    "Primary Key '%s' was provided, but there is no such column"
-                        .formatted(primaryKey));
-            }
-
             primaryKeys.add(primaryKey);
         } while (tryPunctuation(","));
-
-        seen = new HashSet<>();
-        duplicates = new HashSet<>();
-
-        for (String pk : primaryKeys) {
-            if (!seen.add(pk)) {
-                duplicates.add(pk);
-            }
-        }
-
-        if (!duplicates.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Primary Keys '%s' are duplicated"
-                    .formatted(String.join(", ", duplicates)));
-        }
 
         expectPunctuation(")", "Expected ')' to close primary key list");
         expectPunctuation(")", "Expected ')' to close Create Table Statement");
