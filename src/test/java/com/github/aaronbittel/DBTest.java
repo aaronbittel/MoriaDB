@@ -22,9 +22,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import com.github.aaronbittel.parser.NamedCell;
 import com.github.aaronbittel.parser.Parser;
+import com.github.aaronbittel.parser.Stmt;
 import com.github.aaronbittel.parser.StmtCreateTable;
 import com.github.aaronbittel.parser.StmtInsert;
 import com.github.aaronbittel.parser.StmtSelect;
+import com.github.aaronbittel.parser.StmtUpdate;
 import com.github.aaronbittel.table.CellType;
 import com.github.aaronbittel.table.Column;
 import com.github.aaronbittel.table.Row;
@@ -366,21 +368,21 @@ class DBTest {
     }
 
     @Nested
-    class WithInitialEntry {
+    class WithSingleExistingRow {
 
         static String dbName = "test-table";
 
         @BeforeEach
-        void setupInitalData() throws IOException {
+        void setupInitialData() throws IOException {
             StmtCreateTable createStmt = createTable(
                 dbName,
-                List.of(col("id", INT), col("first_name", STR)),
+                List.of(col("id", INT), col("first_name", STR), col("last_name", STR)),
                 List.of("id"));
             db.execStmt(createStmt);
 
             StmtInsert insertStmt = new StmtInsert(
                 dbName,
-                List.of(intCell(1), strCell("Bob")));
+                List.of(intCell(1), strCell("Bob"), strCell("Smith")));
             db.execStmt(insertStmt);
         }
 
@@ -413,7 +415,7 @@ class DBTest {
 
         @ParameterizedTest
         @MethodSource("validSelectStatements")
-        void select_returns_matching_row(
+        void select_returns_expected_rows(
             StmtSelect select, List<Row> expectedRows) throws IOException
         {
             SQLResult result = db.execStmt(select);
@@ -453,9 +455,158 @@ class DBTest {
 
         @ParameterizedTest
         @MethodSource("invalidSelectStatements")
-        void invalid_select_throws_exception(StmtSelect stmt, String description) {
+        void invalid_select_throws_illegal_argument_exception(
+            StmtSelect stmt, String description)
+        {
             assertThatExceptionOfType(IllegalArgumentException.class)
                 .as(description)
+                .isThrownBy(() -> db.execStmt(stmt));
+        }
+
+        static Stream<Arguments> validUpdateStatements() {
+            NamedCell validId = namedCell("id", intCell(1));
+            NamedCell invalidId = namedCell("id", intCell(999));
+            NamedCell newFirstNameAlice = namedCell("first_name", strCell("Alice"));
+            NamedCell newLastNameAndor = namedCell("last_name", strCell("Andor"));
+            return Stream.of(
+                Arguments.of(
+                    createUpdate(
+                        dbName,
+                        List.of(validId),
+                        List.of(newFirstNameAlice, newLastNameAndor)),
+                    1),
+                Arguments.of(
+                    createUpdate(
+                        dbName,
+                        List.of(validId),
+                        List.of(newLastNameAndor, newFirstNameAlice)),
+                    1),
+                Arguments.of(
+                    createUpdate(
+                        dbName,
+                        List.of(invalidId),
+                        List.of(newFirstNameAlice, newLastNameAndor)),
+                    0)
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("validUpdateStatements")
+        void update_applies_changes_and_returns_affected_rows(
+            StmtUpdate update, int expectedUpdated) throws IOException
+        {
+            SQLResult result = db.execStmt(update);
+            assertThat(result.updated()).isEqualTo(expectedUpdated);
+            assertThat(result.headers()).isEmpty();
+            assertThat(result.values()).isEmpty();
+        }
+
+        static Stream<Arguments> invalidUpdateStatements() {
+            NamedCell validId = namedCell("id", intCell(1));
+            NamedCell newFirstNameAlice = namedCell("first_name", strCell("Alice"));
+            NamedCell newLastNameAndor = namedCell("last_name", strCell("Andor"));
+            NamedCell wrongLastNameType = namedCell("last_name", intCell(4));
+            NamedCell wrongPkType = namedCell("id", strCell("one"));
+            return Stream.of(
+                Arguments.of(
+                    createUpdate(
+                        "unknown-table",
+                        List.of(validId),
+                        List.of(newFirstNameAlice, newLastNameAndor)),
+                    "Unknown table"),
+                Arguments.of(
+                    createUpdate(
+                        dbName,
+                        List.of(),
+                        List.of(newFirstNameAlice, newLastNameAndor)),
+                    "Missing primary key"),
+                Arguments.of(
+                    createUpdate(
+                        dbName,
+                        List.of(validId),
+                        List.of(newFirstNameAlice)),
+                    "Missing column"),
+                Arguments.of(
+                    createUpdate(
+                        dbName,
+                        List.of(validId),
+                        List.of(newFirstNameAlice, wrongLastNameType)),
+                    "Wrong column type"),
+                Arguments.of(
+                    createUpdate(
+                        dbName,
+                        List.of(validId),
+                        List.of(newFirstNameAlice, newFirstNameAlice)),
+                    "Duplicate set column + missing column"),
+                Arguments.of(
+                    createUpdate(
+                        dbName,
+                        List.of(validId),
+                        List.of(newFirstNameAlice, newFirstNameAlice, newLastNameAndor)),
+                    "Duplicate set column"),
+                Arguments.of(
+                    createUpdate(
+                        dbName,
+                        List.of(validId, validId),
+                        List.of(newFirstNameAlice, newLastNameAndor)),
+                    "Duplicate key in where clause"),
+                Arguments.of(
+                    createUpdate(
+                        dbName,
+                        List.of(wrongPkType),
+                        List.of(newFirstNameAlice, newLastNameAndor)),
+                    "Wrong primary key type")
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("invalidUpdateStatements")
+        void invalid_update_throws_illegal_argument_exception(
+            StmtUpdate update, String description)
+        {
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                .as(description)
+                .isThrownBy(() -> db.execStmt(update));
+        }
+
+        static Stream<Arguments> missingPrimaryKeyStatements() {
+            String dbName = "ALL KEYS";
+            NamedCell num1 = namedCell("num1", intCell(1));
+            return Stream.of(
+                Arguments.of(
+                    dbName,
+                    createSelect(dbName, List.of("num1", "num2"), List.of(num1))),
+                Arguments.of(
+                    dbName,
+                    createUpdate(
+                        dbName,
+                        List.of(num1),
+                        List.of(
+                            namedCell("num1", intCell(10)),
+                            namedCell("num2", intCell(10)),
+                            namedCell("str1", strCell("a")),
+                            namedCell("str2", strCell("b")))))
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("missingPrimaryKeyStatements")
+        void primary_key_missing_throws_exception(
+            String dbName, Stmt stmt) throws IOException
+        {
+            StmtCreateTable create = createTable(
+                dbName,
+                List.of(
+                    col("num1", INT),
+                    col("num2", INT),
+                    col("str1", STR),
+                    col("str2", STR)),
+                List.of("num1", "num2"));
+
+            db.execStmt(create);
+
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                .as("all primary keys must be provided")
                 .isThrownBy(() -> db.execStmt(stmt));
         }
     }
@@ -506,5 +657,13 @@ class DBTest {
         List<NamedCell> keys)
     {
         return new StmtSelect(name, columns, keys);
+    }
+
+    private static StmtUpdate createUpdate(
+        String name,
+        List<NamedCell> keys,
+        List<NamedCell> values)
+    {
+        return new StmtUpdate(name, keys, values);
     }
 }

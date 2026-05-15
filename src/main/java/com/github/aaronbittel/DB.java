@@ -99,8 +99,12 @@ public class DB {
         return primaryKeysIdxs.stream().distinct().sorted().toList();
     }
 
-    private void validateCreateTable(StmtCreateTable stmt) {
-        List<String> columns = stmt.columns().stream().map(Column::name).toList();
+    private void validateCreateTable(StmtCreateTable createTable) {
+        List<String> columns = createTable
+            .columns()
+            .stream()
+            .map(Column::name)
+            .toList();
 
         List<String> duplicateColumns = getDuplicates(columns);
         if (!duplicateColumns.isEmpty()) {
@@ -109,7 +113,7 @@ public class DB {
                 + String.join(", ", duplicateColumns));
         }
 
-        List<String> duplicatePrimaryKeys = getDuplicates(stmt.primaryKeys());
+        List<String> duplicatePrimaryKeys = getDuplicates(createTable.primaryKeys());
         if (!duplicatePrimaryKeys.isEmpty()) {
             throw new IllegalArgumentException(
                 "The following primary keys are duplicated: "
@@ -117,7 +121,7 @@ public class DB {
         }
 
         List<String> missingPrimaryKeys = new ArrayList<>();
-        for (String primaryKey : stmt.primaryKeys()) {
+        for (String primaryKey : createTable.primaryKeys()) {
             int idx = columns.indexOf(primaryKey);
             if (idx == -1) missingPrimaryKeys.add(primaryKey);
         }
@@ -128,13 +132,13 @@ public class DB {
         }
     }
 
-    private void validateSelect(Schema schema, StmtSelect stmt) {
+    private void validateSelect(Schema schema, StmtSelect select) {
         List<Column> columns = schema.columns();
         List<String> columnNames = columns.stream().map(Column::name).toList();
 
         // check that all selected columns exist
         List<String> unknownSelectedColumns = new ArrayList<>();
-        for (String column : stmt.columns()) {
+        for (String column : select.columns()) {
             if (columnNames.indexOf(column) == -1) {
                 unknownSelectedColumns.add(column);
             }
@@ -142,7 +146,7 @@ public class DB {
         if (!unknownSelectedColumns.isEmpty()) {
             throw new IllegalArgumentException(
                 "selected column(s) '" + String.join(", ", unknownSelectedColumns)
-                + "' do not exist in table '" + stmt.tableName());
+                + "' do not exist in table '" + select.tableName());
         }
 
         // getAllPrimaryKeys as Columns
@@ -155,7 +159,7 @@ public class DB {
         List<String> missingPrimaryKeys = new ArrayList<>();
         for (Column pkColumn : primaryKeyColumns) {
             boolean found = false;
-            for (NamedCell cell : stmt.keys()) {
+            for (NamedCell cell : select.keys()) {
                 if (pkColumn.name().equals(cell.column())
                     && pkColumn.type() == cell.value().type())
                 {
@@ -251,8 +255,47 @@ public class DB {
             new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
         );
 
-        // check that all provided columns exist
-        for (NamedCell value : stmt.values()) {
+        validateUpdate(schema, stmt);
+
+        Row row = makePrimaryKey(schema, stmt.keys());
+        fillNonPrimaryKey(schema, stmt.values(), row);
+
+        if (!update(schema, row)) {
+            return SQLResult.of();
+        }
+
+        return new SQLResult(1, List.of(), List.of());
+    }
+
+    private void validateUpdate(Schema schema, StmtUpdate update) {
+        List<String> providedKeys = update
+            .keys()
+            .stream()
+            .map(NamedCell::column)
+            .toList();
+
+        List<String> duplicatedKeys = getDuplicates(providedKeys);
+        if (!duplicatedKeys.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Currently it is only supported to select in where clause "
+                + "by primary key which must not be duplicated"
+                + "The following keys are duplicated in the where clause: "
+                + String.join(", ", duplicatedKeys));
+        }
+
+        List<String> providedValues = update
+            .values()
+            .stream()
+            .map(NamedCell::column)
+            .toList();
+        List<String> duplicatedValues = getDuplicates(providedValues);
+        if (!duplicatedValues.isEmpty()) {
+            throw new IllegalArgumentException(
+                "The following values are duplicated in the set section: "
+                + String.join(", ", duplicatedValues));
+        }
+
+        for (NamedCell value : update.values()) {
             boolean found = false;
             for (Column column : schema.columns()) {
                 if (column.name().equals(value.column())
@@ -268,15 +311,6 @@ public class DB {
                     "The provided column '" + value.column() + "' does not exist");
             }
         }
-
-        Row row = makePrimaryKey(schema, stmt.keys());
-        fillNonPrimaryKey(schema, stmt.values(), row);
-
-        if (!update(schema, row)) {
-            return SQLResult.of();
-        }
-
-        return new SQLResult(1, List.of(), List.of());
     }
 
     public SQLResult execDelete(StmtDelete stmt) throws IOException {
