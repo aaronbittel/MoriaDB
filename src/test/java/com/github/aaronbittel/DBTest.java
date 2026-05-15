@@ -1,13 +1,14 @@
 package com.github.aaronbittel;
 
 import static com.github.aaronbittel.BytesUtility.bytes;
+import static com.github.aaronbittel.table.CellType.INT;
+import static com.github.aaronbittel.table.CellType.STR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -32,23 +33,13 @@ class DBTest {
     KVStore kv;
     DB db;
 
-    Schema schema = new Schema(
+    Schema schema = createSchema(
         "link",
-        List.of(
-            new Column("time", CellType.INT),
-            new Column("src", CellType.STR),
-            new Column("dst", CellType.STR)
-        ),
+        List.of(col("time", INT), col("src", STR), col("dst", STR)),
         List.of(1, 2)
     );
 
-    Row row = new Row(
-        List.of(
-            new Cell.Int(123),
-            new Cell.Str(bytes("a")),
-            new Cell.Str(bytes("b"))
-        )
-    );
+    Row row = createRow(intCell(123), strCell("a"), strCell("b"));
 
     Row out;
 
@@ -59,13 +50,7 @@ class DBTest {
         db = new DB(kv);
         db.open();
 
-        out = new Row(
-            Arrays.asList(
-                new Cell.Null(),
-                new Cell.Str(bytes("a")),
-                new Cell.Str(bytes("b"))
-            )
-        );
+        out = createRow(nullCell(), strCell("a"), strCell("b"));
     }
 
     @AfterEach
@@ -99,13 +84,7 @@ class DBTest {
     void upsert_updates_value_if_exists_and_returns_true() throws IOException {
         assertThat(db.upsert(schema, row)).isTrue();
 
-        Row updatedRow = new Row(
-            List.of(
-                new Cell.Int(456),
-                new Cell.Str(bytes("a")),
-                new Cell.Str(bytes("b"))
-            )
-        );
+        Row updatedRow = createRow(intCell(456), strCell("a"), strCell("b"));
         assertThat(db.upsert(schema, updatedRow)).isTrue();
 
         assertThat(db.select(schema, out)).isTrue();
@@ -130,13 +109,7 @@ class DBTest {
     void update_updates_existing_value_and_returns_true() throws IOException {
         assertThat(db.insert(schema, row)).isTrue();
 
-        Row updatedRow = new Row(
-            List.of(
-                new Cell.Int(456),
-                new Cell.Str(bytes("a")),
-                new Cell.Str(bytes("b"))
-            )
-        );
+        Row updatedRow = createRow(intCell(456), strCell("a"), strCell("b"));
 
         assertThat(db.update(schema, updatedRow)).isTrue();
         assertThat(db.select(schema, out)).isTrue();
@@ -154,13 +127,7 @@ class DBTest {
         assertThat(db.select(schema, out)).isTrue();
         assertThat(out).isEqualTo(row);
 
-        Row key = new Row(
-            Arrays.asList(
-                new Cell.Null(),
-                new Cell.Str(bytes("a")),
-                new Cell.Str(bytes("b"))
-            )
-        );
+        Row key = createRow(nullCell(), strCell("a"), strCell("b"));
 
         assertThat(db.delete(schema, key)).isTrue();
         assertThat(db.select(schema, out)).isFalse();
@@ -200,18 +167,9 @@ class DBTest {
     }
 
     private static Stream<Arguments> invalidPKRows() {
-        Row emptyRow = new Row(Arrays.asList(
-            new Cell.Null(),
-            new Cell.Null(),
-            new Cell.Null()));
-        Row missingPrimaryKey = new Row(Arrays.asList(
-                new Cell.Null(),
-                new Cell.Str(bytes("a")),
-                new Cell.Null()));
-        Row wrongPrimaryKey = new Row(Arrays.asList(
-                new Cell.Null(),
-                new Cell.Int(123),
-                new Cell.Str(bytes("b"))));
+        Row emptyRow = createRow(nullCell(), nullCell(), nullCell());
+        Row missingPrimaryKey = createRow(nullCell(), strCell("a"), nullCell());
+        Row wrongPrimaryKey = createRow(nullCell(), intCell(123), strCell("b"));
         return Stream.of(
             Arguments.of(
                 emptyRow,
@@ -228,30 +186,11 @@ class DBTest {
     }
 
     private static Stream<Arguments> invalidInputRows() {
-        Row emptyRow = new Row(Arrays.asList(
-            new Cell.Null(),
-            new Cell.Null(),
-            new Cell.Null()));
-
-        Row missingPrimaryKey = new Row(Arrays.asList(
-            new Cell.Int(123),
-            new Cell.Str(bytes("a")),
-            new Cell.Null()));
-
-        Row missingValue = new Row(Arrays.asList(
-            new Cell.Null(),
-            new Cell.Str(bytes("a")),
-            new Cell.Str(bytes("b"))));
-
-        Row wrongValue = new Row(Arrays.asList(
-            new Cell.Str(bytes("wrong")),
-            new Cell.Str(bytes("a")),
-            new Cell.Str(bytes("b"))));
-
-        Row wrongPrimaryKey = new Row(Arrays.asList(
-            new Cell.Null(),
-            new Cell.Int(123),
-            new Cell.Str(bytes("b"))));
+        Row emptyRow = createRow(nullCell(), nullCell(), nullCell());
+        Row missingPrimaryKey = createRow(intCell(123), strCell("a"), nullCell());
+        Row missingValue = createRow(nullCell(), strCell("a"), strCell("b"));
+        Row wrongValue = createRow(strCell("wrong"), strCell("a"), strCell("b"));
+        Row wrongPrimaryKey = createRow(nullCell(), intCell(123), strCell("b"));
 
         return Stream.of(
             Arguments.of(
@@ -280,35 +219,23 @@ class DBTest {
     static Stream<Arguments> validCreateTableStatements() {
         return Stream.of(
             Arguments.of(
-                new StmtCreateTable(
+                createTable(
                     "link",
-                    List.of(
-                        new Column("time", CellType.INT),
-                        new Column("src", CellType.STR),
-                        new Column("dst", CellType.STR)),
+                    List.of(col("time", INT), col("src", STR), col("dst", STR)),
                     List.of("src", "dst")),
-                new Schema(
+                createSchema(
                     "link",
-                    List.of(
-                        new Column("time", CellType.INT),
-                        new Column("src", CellType.STR),
-                        new Column("dst", CellType.STR)),
+                    List.of(col("time", INT), col("src", STR), col("dst", STR)),
                     List.of(1, 2))
             ),
             Arguments.of(
-                new StmtCreateTable(
+                createTable(
                     "link",
-                    List.of(
-                        new Column("time", CellType.INT),
-                        new Column("src", CellType.STR),
-                        new Column("dst", CellType.STR)),
+                    List.of(col("time", INT), col("src", STR), col("dst", STR)),
                     List.of("dst", "src")),
-                new Schema(
+                createSchema(
                     "link",
-                    List.of(
-                        new Column("time", CellType.INT),
-                        new Column("src", CellType.STR),
-                        new Column("dst", CellType.STR)),
+                    List.of(col("time", INT), col("src", STR), col("dst", STR)),
                     List.of(1, 2))
             )
         );
@@ -326,28 +253,16 @@ class DBTest {
     static Stream<Arguments> invalidCreateTableStatements() {
         return Stream.of(
             Arguments.of(
-                new StmtCreateTable(
-                    "t",
-                    List.of(
-                        new Column("a", CellType.INT),
-                        new Column("a", CellType.STR)
-                    ),
-                    List.of("a")
-                ), "Duplicate column"
+                createTable("t", List.of(col("a", INT), col("a", STR)), List.of("a")),
+                "Duplicate column"
             ),
             Arguments.of(
-                new StmtCreateTable(
-                    "t",
-                    List.of(new Column("a", CellType.INT)),
-                    List.of("a", "a")
-                ), "Duplicate primary key"
+                createTable("t", List.of(col("a", INT)), List.of("a", "a")),
+                "Duplicate primary key"
             ),
             Arguments.of(
-                new StmtCreateTable(
-                    "t",
-                    List.of(new Column("a", CellType.INT)),
-                    List.of("b")
-                ), "Missing primary key"
+                createTable("t", List.of(col("a", INT)), List.of("b")),
+                "Missing primary key"
             )
         );
     }
@@ -366,12 +281,9 @@ class DBTest {
     void create_table_with_existing_name_throws_exception()
         throws IOException
     {
-        StmtCreateTable stmt = new StmtCreateTable(
+        StmtCreateTable stmt = createTable(
             "link",
-            List.of(
-                new Column("time", CellType.INT),
-                new Column("src", CellType.STR),
-                new Column("dst", CellType.STR)),
+            List.of(col("time", INT), col("src", STR), col("dst", STR)),
             List.of("src", "dst")
         );
 
@@ -386,16 +298,16 @@ class DBTest {
         throws IOException
     {
         List<Column> columns = List.of(
-            new Column("time", CellType.INT),
-            new Column("src", CellType.STR),
-            new Column("dst", CellType.STR));
+            col("time", INT),
+            col("src", STR),
+            col("dst", STR));
         List<String> primaryKeys = List.of("src", "dst");
 
-        StmtCreateTable stmt1 = new StmtCreateTable("link1", columns, primaryKeys);
+        StmtCreateTable stmt1 = createTable("link1", columns, primaryKeys);
         db.execStmt(stmt1);
         assertThat(db.getSchema("link1")).isPresent();
 
-        StmtCreateTable stmt2 = new StmtCreateTable("link2", columns, primaryKeys);
+        StmtCreateTable stmt2 = createTable("link2", columns, primaryKeys);
         db.execStmt(stmt2);
         assertThat(db.getSchema("link2")).isPresent();
     }
@@ -421,7 +333,7 @@ class DBTest {
 
         String selectStmt = "select time from link where dst = 'alice' and src = 'bob';";
         SQLResult selectResult = db.execStmt(new Parser(selectStmt).parseStmt());
-        List<Row> expectedSelectRows = List.of(new Row(List.of(new Cell.Int(123))));
+        List<Row> expectedSelectRows = List.of(createRow(intCell(123)));
         assertThat(selectResult.values()).isEqualTo(expectedSelectRows);
 
         String updateStmt =
@@ -434,7 +346,7 @@ class DBTest {
 
         selectStmt = "select time from link where dst = 'alice' and src = 'bob';";
         selectResult = db.execStmt(new Parser(selectStmt).parseStmt());
-        expectedSelectRows = List.of(new Row(List.of(new Cell.Int(456))));
+        expectedSelectRows = List.of(createRow(intCell(456)));
         assertThat(selectResult.values()).isEqualTo(expectedSelectRows);
 
         db.close();
@@ -447,5 +359,41 @@ class DBTest {
         selectStmt = "select time from link where dst = 'alice' and src = 'bob';";
         selectResult = db.execStmt(new Parser(selectStmt).parseStmt());
         assertThat(selectResult.values()).isEmpty();
+    }
+
+    private static Cell.Int intCell(long value) {
+        return new Cell.Int(value);
+    }
+
+    private static Cell.Str strCell(String data) {
+        return new Cell.Str(bytes(data));
+    }
+
+    private static Cell.Null nullCell() {
+        return new Cell.Null();
+    }
+
+    private static Row createRow(Cell... cells) {
+        return new Row(cells);
+    }
+
+    private static Schema createSchema(
+        String tableName,
+        List<Column> columns,
+        List<Integer> primaryKeys)
+    {
+        return new Schema(tableName, columns, primaryKeys);
+    }
+
+    private static Column col(String name, CellType type) {
+        return new Column(name, type);
+    }
+
+    private static StmtCreateTable createTable(
+        String name,
+        List<Column> columns,
+        List<String> pk)
+    {
+        return new StmtCreateTable(name, columns, pk);
     }
 }
