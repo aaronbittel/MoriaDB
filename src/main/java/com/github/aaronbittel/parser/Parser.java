@@ -51,7 +51,7 @@ public class Parser {
             CellType type = CellType.of(expectName("Expected column type"));
             expectPunctuation(",", "Expected ',' after column type");
             columns.add(new Column(columnName, type));
-        } while (!tryKeyword("primary key"));
+        } while (!tryKeyword("PRIMARY", "KEY"));
 
         expectPunctuation("(", "Expected '(' for primary keys");
 
@@ -196,17 +196,38 @@ public class Parser {
         return found;
     }
 
-    public boolean tryKeyword(String keyword) {
-        skipWhitespace();
+    public boolean tryKeyword(String... keywords) {
+        int saved = pos;
 
-        if (keyword.length() > remainingLength()) return false;
+        boolean found = true;
 
-        String candidate = source.substring(pos, pos + keyword.length());
+        for (String keyword : keywords) {
+            skipWhitespace();
 
-        if (!keyword.equalsIgnoreCase(candidate)) return false;
-        if (!isSeparator(source.charAt(pos + keyword.length()))) return false;
+            if (keyword.length() > remainingLength()) {
+                found = false;
+                break;
+            }
 
-        pos += keyword.length();
+            String candidate = source.substring(pos, pos + keyword.length());
+
+            if (!keyword.equalsIgnoreCase(candidate)) {
+                found = false;
+                break;
+            }
+
+            if (!isSeparator(source.charAt(pos + keyword.length()))) {
+                found = false;
+                break;
+            }
+
+            pos += keyword.length();
+        }
+
+        if (!found) {
+            pos = saved;
+            return false;
+        }
 
         return true;
     }

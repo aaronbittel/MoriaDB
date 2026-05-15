@@ -176,8 +176,8 @@ class ParserTest {
 
     @ParameterizedTest
     @MethodSource("validStatements")
-    void parses_valid_statements(String stmt, Object expected) {
-        Parser parser = new Parser(stmt);
+    void parses_valid_statements(String source, Stmt expected) {
+        Parser parser = new Parser(source);
         assertThat(parser.parseStmt()).isEqualTo(expected);
     }
 
@@ -508,6 +508,18 @@ class ParserTest {
                     a int64,
                     primary key (a)
                 );
+                """,
+                new StmtCreateTable(
+                    "table",
+                    List.of(new Column("a", CellType.INT)),
+                    List.of("a"))),
+            Arguments.of(
+                """
+                   create    TABLE    table    (
+                       a    int64   ,
+
+                        primary     key   (a)
+                   )     \t;
                 """,
                 new StmtCreateTable(
                     "table",
