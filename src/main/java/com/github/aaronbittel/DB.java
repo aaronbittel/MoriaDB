@@ -347,12 +347,57 @@ public class DB {
                     "The provided column '" + value.column() + "' does not exist");
             }
         }
+
+        // getAllPrimaryKeys as Strings
+        List<String> primaryKeyNames = new ArrayList<>(schema.primaryKeys().size());
+        for (Integer idx : schema.primaryKeys()) {
+            primaryKeyNames.add(schema.columns().get(idx).name());
+        }
+
+        List<String> primaryKeysInValueList = new ArrayList<>();
+        for (NamedCell value : update.values()) {
+            if (primaryKeyNames.contains(value.column())) {
+                primaryKeysInValueList.add(value.column());
+            }
+        }
+        if (!primaryKeysInValueList.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Updating a primary key value if update is not allowed. "
+                + "The following primary keys were listed: "
+                + String.join(", ", primaryKeysInValueList));
+        }
+
+        List<String> missingUpdateValues = new ArrayList<>();
+        for (int i = 0; i < schema.columns().size(); ++i) {
+            if (schema.primaryKeys().contains(i)) continue;
+            Column column = schema.columns().get(i);
+            boolean found = false;
+            for (NamedCell value : update.values()) {
+                if (value.column().equals(column.name())
+                    && value.value().type() == column.type())
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                missingUpdateValues.add(column.name());
+            }
+        }
+        if (!missingUpdateValues.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Currently to update a row all non-primary key columns must be provided. "
+                + "The following columns are missing: "
+                + String.join(", ", missingUpdateValues));
+        }
     }
 
     public SQLResult execDelete(StmtDelete stmt) throws IOException {
         Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
             new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
         );
+
+        validateDelete(schema, stmt);
 
         Row row = makePrimaryKey(schema, stmt.keys());
 
@@ -361,6 +406,46 @@ public class DB {
         }
 
         return new SQLResult(1, List.of(), List.of());
+    }
+
+    private void validateDelete(Schema schema, StmtDelete stmt) {
+        List<String> duplicateKeys = getDuplicates(
+            stmt.keys().stream().map(NamedCell::column).toList());
+        if (!duplicateKeys.isEmpty()) {
+            throw new IllegalArgumentException(
+                "The following keys are duplicated: "
+                + String.join(", ", duplicateKeys));
+        }
+
+        List<Column> primaryKeyColumns = new ArrayList<>(schema.primaryKeys().size());
+        for (Integer idx : schema.primaryKeys()) {
+            primaryKeyColumns.add(schema.columns().get(idx));
+        }
+
+        Set<String> primaryKeySet = primaryKeyColumns.stream()
+            .map(Column::name)
+            .collect(Collectors.toSet());
+
+        List<String> unknownKeys = new ArrayList<>();
+        for (NamedCell key : stmt.keys()) {
+            if (!primaryKeySet.remove(key.column())) {
+                unknownKeys.add(key.column());
+            }
+        }
+
+        if (!primaryKeySet.isEmpty()) {
+            String message = primaryKeySet.stream()
+                .collect(Collectors.joining("\n- "));
+            throw new IllegalArgumentException(
+                "The following primary keys are missing from the where-clause: "
+                + message);
+        }
+
+        if (!unknownKeys.isEmpty()) {
+            throw new IllegalArgumentException(
+                "The following columns are no primary keys of the table: "
+                + String.join(", ", unknownKeys));
+        }
     }
 
     // Should this be private?

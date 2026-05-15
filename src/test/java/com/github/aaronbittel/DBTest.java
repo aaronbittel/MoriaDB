@@ -24,6 +24,7 @@ import com.github.aaronbittel.parser.NamedCell;
 import com.github.aaronbittel.parser.Parser;
 import com.github.aaronbittel.parser.Stmt;
 import com.github.aaronbittel.parser.StmtCreateTable;
+import com.github.aaronbittel.parser.StmtDelete;
 import com.github.aaronbittel.parser.StmtInsert;
 import com.github.aaronbittel.parser.StmtSelect;
 import com.github.aaronbittel.parser.StmtUpdate;
@@ -641,6 +642,53 @@ class DBTest {
                 .isThrownBy(() -> db.execStmt(insert));
         }
 
+        static Stream<Arguments> validDeleteStatements() {
+            NamedCell validId = namedCell("id", intCell(1));
+            NamedCell invalidId = namedCell("id", intCell(999));
+            return Stream.of(
+                Arguments.of(createDelete(dbName, List.of(validId)), 1),
+                Arguments.of(createDelete(dbName, List.of(invalidId)), 0)
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("validDeleteStatements")
+        void delete_removes_row_and_returns_affected_rows(
+            StmtDelete delete, int expectedUpdated) throws IOException
+        {
+            SQLResult result = db.execStmt(delete);
+            assertThat(result.updated()).isEqualTo(expectedUpdated);
+            assertThat(result.headers()).isEmpty();
+            assertThat(result.values()).isEmpty();
+        }
+
+        static Stream<Arguments> invalidDeleteStatements() {
+            NamedCell validId = namedCell("id", intCell(1));
+            NamedCell wrongName = namedCell("id", strCell("a"));
+            return Stream.of(
+                Arguments.of(
+                    createDelete("Unknown table", List.of(validId)), "Unknown Table"),
+                Arguments.of(
+                    createDelete(dbName, List.of(wrongName)), "Wrong key name"),
+                Arguments.of(
+                    createDelete(dbName, List.of(wrongName)), "Wrong key type"),
+                Arguments.of(
+                    createDelete(dbName, List.of()), "Missing key"),
+                Arguments.of(
+                    createDelete(dbName, List.of(validId, validId)), "Too many keys")
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("invalidDeleteStatements")
+        void invalid_delete_throws_illegal_argument_exception(
+            StmtDelete delete, String description)
+        {
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                .as(description)
+                .isThrownBy(() -> db.execStmt(delete));
+        }
+
         static Stream<Arguments> missingPrimaryKeyStatements() {
             String dbName = "ALL KEYS";
             NamedCell num1 = namedCell("num1", intCell(1));
@@ -746,5 +794,9 @@ class DBTest {
 
     private static StmtInsert createInsert(String name, List<Cell> cells) {
         return new StmtInsert(name, cells);
+    }
+
+    private static StmtDelete createDelete(String name, List<NamedCell> keys) {
+        return new StmtDelete(name, keys);
     }
 }

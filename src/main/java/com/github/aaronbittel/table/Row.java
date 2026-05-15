@@ -44,7 +44,7 @@ public class Row {
 
         if (cells.length != schema.columns().size()) {
             throw new IllegalArgumentException(
-                    "Cell count and schema column count differ in length");
+                "Cell count and schema column count differ in length");
         }
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
