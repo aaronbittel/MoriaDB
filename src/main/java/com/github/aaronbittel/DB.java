@@ -20,6 +20,7 @@ import com.github.aaronbittel.parser.StmtDelete;
 import com.github.aaronbittel.parser.StmtInsert;
 import com.github.aaronbittel.parser.StmtSelect;
 import com.github.aaronbittel.parser.StmtUpdate;
+import com.github.aaronbittel.table.CellType;
 import com.github.aaronbittel.table.Column;
 import com.github.aaronbittel.table.Row;
 import com.github.aaronbittel.table.Schema;
@@ -99,8 +100,8 @@ public class DB {
         return primaryKeysIdxs.stream().distinct().sorted().toList();
     }
 
-    private void validateCreateTable(StmtCreateTable createTable) {
-        List<String> columns = createTable
+    private void validateCreateTable(StmtCreateTable stmt) {
+        List<String> columns = stmt
             .columns()
             .stream()
             .map(Column::name)
@@ -113,7 +114,7 @@ public class DB {
                 + String.join(", ", duplicateColumns));
         }
 
-        List<String> duplicatePrimaryKeys = getDuplicates(createTable.primaryKeys());
+        List<String> duplicatePrimaryKeys = getDuplicates(stmt.primaryKeys());
         if (!duplicatePrimaryKeys.isEmpty()) {
             throw new IllegalArgumentException(
                 "The following primary keys are duplicated: "
@@ -121,7 +122,7 @@ public class DB {
         }
 
         List<String> missingPrimaryKeys = new ArrayList<>();
-        for (String primaryKey : createTable.primaryKeys()) {
+        for (String primaryKey : stmt.primaryKeys()) {
             int idx = columns.indexOf(primaryKey);
             if (idx == -1) missingPrimaryKeys.add(primaryKey);
         }
@@ -132,13 +133,13 @@ public class DB {
         }
     }
 
-    private void validateSelect(Schema schema, StmtSelect select) {
+    private void validateSelect(Schema schema, StmtSelect stmt) {
         List<Column> columns = schema.columns();
         List<String> columnNames = columns.stream().map(Column::name).toList();
 
         // check that all selected columns exist
         List<String> unknownSelectedColumns = new ArrayList<>();
-        for (String column : select.columns()) {
+        for (String column : stmt.columns()) {
             if (columnNames.indexOf(column) == -1) {
                 unknownSelectedColumns.add(column);
             }
@@ -146,7 +147,7 @@ public class DB {
         if (!unknownSelectedColumns.isEmpty()) {
             throw new IllegalArgumentException(
                 "selected column(s) '" + String.join(", ", unknownSelectedColumns)
-                + "' do not exist in table '" + select.tableName());
+                + "' do not exist in table '" + stmt.tableName());
         }
 
         // getAllPrimaryKeys as Columns
@@ -159,7 +160,7 @@ public class DB {
         List<String> missingPrimaryKeys = new ArrayList<>();
         for (Column pkColumn : primaryKeyColumns) {
             boolean found = false;
-            for (NamedCell cell : select.keys()) {
+            for (NamedCell cell : stmt.keys()) {
                 if (pkColumn.name().equals(cell.column())
                     && pkColumn.type() == cell.value().type())
                 {
@@ -195,33 +196,68 @@ public class DB {
         Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
             new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
         );
-        List<Column> columns = schema.columns();
 
-        // check that provided values (types) match with schema
-        // TODO: What about primary keys (auto-increment), or optional fields (later)
-        if (columns.size() != stmt.values().size()) {
-            throw new IllegalArgumentException(
-                "Number of columns in insert statement, "
-                + "do not match up with number of columns the table has");
-        }
+        validateInsert(schema, stmt);
 
-        List<Cell> cells = new ArrayList<>(columns.size());
-
-        for (int i = 0; i < columns.size(); ++i) {
-            Column column = columns.get(i);
-            Cell cell = stmt.values().get(i);
-            if (column.type() != cell.type()) {
-                throw new IllegalArgumentException(
-                    "Expected column type '" + column.type()
-                    + "' for column '" + column.name() + "', but got '" + cell.type());
-            }
-            cells.add(cell);
-        }
-
-        if (insert(schema, new Row(cells))) {
+        if (insert(schema, new Row(stmt.values()))) {
             return new SQLResult(1, List.of(), List.of());
         }
-        return SQLResult.of();
+
+        throw new IllegalArgumentException("A row with this primary key already exists");
+    }
+
+    private void validateInsert(Schema schema, StmtInsert insert) {
+        record ColumnMisMatch(String name, CellType expected, CellType got) {
+
+            @Override
+            public String toString() {
+                return "Column '%s' -> expected type '%s', but got '%s'"
+                    .formatted(name, expected, got);
+            }
+        }
+
+        int expectedSize = schema.columns().size();
+        int providedSize = insert.values().size();
+        int minLength = expectedSize > providedSize ? providedSize : expectedSize;
+
+        List<ColumnMisMatch> mismatches = new ArrayList<>(minLength);
+        for (int i = 0; i < minLength; ++i) {
+            Column expectedColumn = schema.columns().get(i);
+            Cell providedValue = insert.values().get(i);
+            if (expectedColumn.type() != providedValue.type()) {
+                mismatches.add(
+                    new ColumnMisMatch(
+                        expectedColumn.name(),
+                        expectedColumn.type(),
+                        providedValue.type()));
+            }
+        }
+        if (!mismatches.isEmpty()) {
+            String message = mismatches.stream()
+                .map(m -> "- " + m)
+                .collect(Collectors.joining("\n"));
+
+            throw new IllegalArgumentException(
+                "For the following columns the expected and received column types "
+                + "did not match up: %n" + message);
+        }
+
+        if (expectedSize > providedSize) {
+            String message = schema.columns()
+                .stream()
+                .skip(providedSize)
+                .map(col -> "- %s (%s)".formatted(col.name(), col.type()))
+                .collect(Collectors.joining("\n"));
+            throw new IllegalArgumentException(
+                "Value for the following columns in missing: " + message);
+        }
+
+        if (expectedSize < providedSize) {
+            throw new IllegalArgumentException(
+                String.format(
+                    "%d values were provided, but table only has %d columns",
+                    providedSize, expectedSize));
+        }
     }
 
     private SQLResult execSelect(StmtSelect stmt) {

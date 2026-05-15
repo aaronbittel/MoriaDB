@@ -569,6 +569,78 @@ class DBTest {
                 .isThrownBy(() -> db.execStmt(update));
         }
 
+        static Stream<Arguments> validInsertStatements() {
+            return Stream.of(
+                Arguments.of(
+                    createInsert(
+                        dbName,
+                        List.of(intCell(2), strCell("Alice"), strCell("Andor")))),
+                Arguments.of(
+                    createInsert(
+                        dbName,
+                        List.of(intCell(2), strCell("Alice"), strCell(""))))
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("validInsertStatements")
+        void insert_adds_row_and_returns_affected_rows(
+            StmtInsert insert) throws IOException
+        {
+            SQLResult result = db.execStmt(insert);
+            assertThat(result.updated()).isEqualTo(1);
+            assertThat(result.headers()).isEmpty();
+            assertThat(result.values()).isEmpty();
+        }
+
+        static Stream<Arguments> invalidInsertStatements() {
+            return Stream.of(
+                Arguments.of(
+                    createInsert(
+                        "Unknown table",
+                        List.of(intCell(2), strCell("Alice"), strCell("Andor"))),
+                    "Unknown table"),
+                Arguments.of(
+                    createInsert(dbName, List.of(strCell("Alice"), strCell("Andor"))),
+                    "Missing column (pk)"),
+                Arguments.of(
+                    createInsert(dbName, List.of(intCell(2), strCell("Andor"))),
+                    "Missing column"),
+                Arguments.of(
+                    createInsert(
+                        dbName,
+                        List.of(strCell("id"), strCell("Alice"), strCell("Andor"))),
+                    "Wrong column type (pk)"),
+                Arguments.of(
+                    createInsert(
+                        dbName,
+                        List.of(intCell(2), strCell("Alice"), intCell(-1))),
+                    "Wrong column type")
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("invalidInsertStatements")
+        void invalid_insert_throws_illegal_argument_exception(
+            StmtInsert insert, String description)
+        {
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                .as(description)
+                .isThrownBy(() -> db.execStmt(insert));
+        }
+
+        @Test
+        void insert_existing_primary_key_throws_exception() throws IOException {
+            StmtInsert insert = createInsert(
+                dbName,
+                List.of(intCell(999), strCell("Alice"), strCell("Andor")));
+
+            db.execStmt(insert);
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                .as("Key already exists")
+                .isThrownBy(() -> db.execStmt(insert));
+        }
+
         static Stream<Arguments> missingPrimaryKeyStatements() {
             String dbName = "ALL KEYS";
             NamedCell num1 = namedCell("num1", intCell(1));
@@ -585,7 +657,12 @@ class DBTest {
                             namedCell("num1", intCell(10)),
                             namedCell("num2", intCell(10)),
                             namedCell("str1", strCell("a")),
-                            namedCell("str2", strCell("b")))))
+                            namedCell("str2", strCell("b"))))),
+                Arguments.of(
+                    dbName,
+                    createInsert(
+                        dbName,
+                        List.of(intCell(2), strCell("a"), strCell("b"))))
             );
         }
 
@@ -665,5 +742,9 @@ class DBTest {
         List<NamedCell> values)
     {
         return new StmtUpdate(name, keys, values);
+    }
+
+    private static StmtInsert createInsert(String name, List<Cell> cells) {
+        return new StmtInsert(name, cells);
     }
 }
