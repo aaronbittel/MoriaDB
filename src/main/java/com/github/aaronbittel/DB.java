@@ -4,9 +4,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -54,23 +56,16 @@ public class DB {
 
     private SQLResult execCreateTable(StmtCreateTable stmt) throws IOException {
         String tableName = stmt.tableName();
-        List<String> columns = stmt.columns().stream().map(Column::name).toList();
 
         if (getSchema(tableName).isPresent()) {
             throw new IllegalArgumentException(
                 "Table '" + tableName + "' already exists");
         }
 
-        List<Integer> primaryKeysIdxs = new ArrayList<>();
-        for (String primaryKey : stmt.primaryKeys()) {
-            int idx = columns.indexOf(primaryKey);
-            if (idx == -1) {
-                throw new IllegalArgumentException(
-                    "Missing column name for primary key: " + primaryKey
-                );
-            }
-            primaryKeysIdxs.add(idx);
-        }
+        validateCreateTable(stmt);
+
+        List<String> columnNames = stmt.columns().stream().map(Column::name).toList();
+        List<Integer> primaryKeysIdxs = getPrimaryKeysIdxs(stmt, columnNames);
 
         Schema schema = new Schema(tableName, stmt.columns(), primaryKeysIdxs);
 
@@ -86,6 +81,63 @@ public class DB {
         }
 
         return SQLResult.of();
+    }
+
+    private List<Integer> getPrimaryKeysIdxs(
+        StmtCreateTable stmt, List<String> columns)
+    {
+        List<Integer> primaryKeysIdxs = new ArrayList<>();
+        for (String primaryKey : stmt.primaryKeys()) {
+            int idx = columns.indexOf(primaryKey);
+            if (idx == -1) {
+                throw new IllegalStateException(
+                    "Invariant violation: primary key '" + primaryKey
+                    + "' not found after validation");
+            }
+            primaryKeysIdxs.add(idx);
+        }
+        Collections.sort(primaryKeysIdxs);
+        return primaryKeysIdxs;
+    }
+
+    private void validateCreateTable(StmtCreateTable stmt) {
+        List<String> columns = stmt.columns().stream().map(Column::name).toList();
+
+        List<String> duplicateColumns = getDuplicates(columns);
+        if (!duplicateColumns.isEmpty()) {
+            throw new IllegalArgumentException(
+                "The following columns are duplicated: "
+                + String.join(", ", duplicateColumns));
+        }
+
+        List<String> duplicatePrimaryKeys = getDuplicates(stmt.primaryKeys());
+        if (!duplicatePrimaryKeys.isEmpty()) {
+            throw new IllegalArgumentException(
+                "The following primary keys are duplicated: "
+                + String.join(", ", duplicatePrimaryKeys));
+        }
+
+        List<String> missingPrimaryKeys = new ArrayList<>();
+        for (String primaryKey : stmt.primaryKeys()) {
+            int idx = columns.indexOf(primaryKey);
+            if (idx == -1) missingPrimaryKeys.add(primaryKey);
+        }
+        if (!missingPrimaryKeys.isEmpty()) {
+            throw new IllegalArgumentException(
+                "The following primary keys are missing: "
+                + String.join(", ", missingPrimaryKeys));
+        }
+    }
+
+    private List<String> getDuplicates(List<String> elements) {
+        List<String> duplicates = new ArrayList<>(elements.size());
+        Set<String> seen = new HashSet<>();
+        for (String elem : elements) {
+            if (!seen.add(elem)) {
+                duplicates.add(elem);
+            }
+        }
+        return duplicates;
     }
 
     private SQLResult execInsert(StmtInsert stmt) throws IOException {
@@ -203,6 +255,7 @@ public class DB {
         return new SQLResult(1, List.of(), List.of());
     }
 
+    // Should this be private?
     public Optional<Schema> getSchema(String tableName) {
         if (tables.containsKey(tableName)) return Optional.of(tables.get(tableName));
 
