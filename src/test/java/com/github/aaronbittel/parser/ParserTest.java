@@ -226,7 +226,12 @@ class ParserTest {
                     List.of("a"),
                     List.of(new NamedCell("c", new Cell.Int(1))))),
             Arguments.of(
-                "select a,b,column from t where c=-21 and dot=\"hello\";",
+                """
+                select
+                    a   ,  b,\tcolumn   from    t
+                    where    c=-21    and     dot=\t\"hello\"
+                ;
+                """,
                 new StmtSelect(
                     "t",
                     List.of("a", "b", "column"),

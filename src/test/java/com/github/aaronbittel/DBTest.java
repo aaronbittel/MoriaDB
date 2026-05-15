@@ -14,13 +14,17 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import com.github.aaronbittel.parser.NamedCell;
 import com.github.aaronbittel.parser.Parser;
 import com.github.aaronbittel.parser.StmtCreateTable;
+import com.github.aaronbittel.parser.StmtInsert;
+import com.github.aaronbittel.parser.StmtSelect;
 import com.github.aaronbittel.table.CellType;
 import com.github.aaronbittel.table.Column;
 import com.github.aaronbittel.table.Row;
@@ -361,6 +365,101 @@ class DBTest {
         assertThat(selectResult.values()).isEmpty();
     }
 
+    @Nested
+    class WithInitialEntry {
+
+        static String dbName = "test-table";
+
+        @BeforeEach
+        void setupInitalData() throws IOException {
+            StmtCreateTable createStmt = createTable(
+                dbName,
+                List.of(col("id", INT), col("first_name", STR)),
+                List.of("id"));
+            db.execStmt(createStmt);
+
+            StmtInsert insertStmt = new StmtInsert(
+                dbName,
+                List.of(intCell(1), strCell("Bob")));
+            db.execStmt(insertStmt);
+        }
+
+        static Stream<Arguments> validSelectStatements() {
+            NamedCell validId = namedCell("id", intCell(1));
+            NamedCell invalidId = namedCell("id", intCell(999));
+            return Stream.of(
+                Arguments.of(
+                    createSelect(dbName, List.of("id", "first_name"), List.of(validId)),
+                    List.of(createRow(intCell(1), strCell("Bob")))),
+                Arguments.of(
+                    createSelect(dbName, List.of("first_name"), List.of(validId)),
+                    List.of(createRow(strCell("Bob")))),
+                Arguments.of(
+                    createSelect(dbName, List.of("first_name", "id"), List.of(validId)),
+                    List.of(createRow(strCell("Bob"), intCell(1)))),
+                Arguments.of(
+                    createSelect(
+                        dbName,
+                        List.of("id", "first_name", "first_name", "id"),
+                        List.of(validId)
+                    ),
+                    List.of(createRow(
+                        intCell(1), strCell("Bob"), strCell("Bob"), intCell(1)))),
+                Arguments.of(
+                    createSelect(dbName, List.of("id"), List.of(invalidId)),
+                    List.of())
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("validSelectStatements")
+        void select_returns_matching_row(
+            StmtSelect select, List<Row> expectedRows) throws IOException
+        {
+            SQLResult result = db.execStmt(select);
+            assertThat(result.updated()).isEqualTo(0);
+            assertThat(result.headers()).isEqualTo(select.columns());
+
+            assertThat(result.values()).isEqualTo(expectedRows);
+        }
+
+        static Stream<Arguments> invalidSelectStatements() {
+            NamedCell validId = namedCell("id", intCell(1));
+            NamedCell invalidIdType = namedCell("id", strCell("1"));
+            NamedCell firstNameBob = namedCell("first_name", strCell("Bob"));
+            return Stream.of(
+                Arguments.of(
+                    createSelect("unknownTable", List.of("id"), List.of(validId)),
+                    "Unknown table"
+                ),
+                Arguments.of(
+                    createSelect(dbName, List.of("id", "unknown"), List.of(validId)),
+                    "unknown column"
+                ),
+                Arguments.of(
+                    createSelect(dbName, List.of("id"), List.of(firstNameBob)),
+                    "Missing primary key in where clause"
+                ),
+                Arguments.of(
+                    createSelect(dbName, List.of("id"), List.of(invalidIdType)),
+                    "Wrong type for primary key"
+                ),
+                Arguments.of(
+                    createSelect(dbName, List.of("id"), List.of()),
+                    "Missing primary key"
+                )
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("invalidSelectStatements")
+        void invalid_select_throws_exception(StmtSelect stmt, String description) {
+            assertThatExceptionOfType(IllegalArgumentException.class)
+                .as(description)
+                .isThrownBy(() -> db.execStmt(stmt));
+        }
+    }
+
     private static Cell.Int intCell(long value) {
         return new Cell.Int(value);
     }
@@ -389,11 +488,23 @@ class DBTest {
         return new Column(name, type);
     }
 
+    private static NamedCell namedCell(String column, Cell value) {
+        return new NamedCell(column, value);
+    }
+
     private static StmtCreateTable createTable(
         String name,
         List<Column> columns,
         List<String> pk)
     {
         return new StmtCreateTable(name, columns, pk);
+    }
+
+    private static StmtSelect createSelect(
+        String name,
+        List<String> columns,
+        List<NamedCell> keys)
+    {
+        return new StmtSelect(name, columns, keys);
     }
 }

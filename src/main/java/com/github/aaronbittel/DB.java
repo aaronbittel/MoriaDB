@@ -2,7 +2,6 @@ package com.github.aaronbittel;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -96,8 +95,8 @@ public class DB {
             }
             primaryKeysIdxs.add(idx);
         }
-        Collections.sort(primaryKeysIdxs);
-        return primaryKeysIdxs;
+
+        return primaryKeysIdxs.stream().distinct().sorted().toList();
     }
 
     private void validateCreateTable(StmtCreateTable stmt) {
@@ -125,6 +124,54 @@ public class DB {
         if (!missingPrimaryKeys.isEmpty()) {
             throw new IllegalArgumentException(
                 "The following primary keys are missing: "
+                + String.join(", ", missingPrimaryKeys));
+        }
+    }
+
+    private void validateSelect(Schema schema, StmtSelect stmt) {
+        List<Column> columns = schema.columns();
+        List<String> columnNames = columns.stream().map(Column::name).toList();
+
+        // check that all selected columns exist
+        List<String> unknownSelectedColumns = new ArrayList<>();
+        for (String column : stmt.columns()) {
+            if (columnNames.indexOf(column) == -1) {
+                unknownSelectedColumns.add(column);
+            }
+        }
+        if (!unknownSelectedColumns.isEmpty()) {
+            throw new IllegalArgumentException(
+                "selected column(s) '" + String.join(", ", unknownSelectedColumns)
+                + "' do not exist in table '" + stmt.tableName());
+        }
+
+        // getAllPrimaryKeys as Columns
+        List<Column> primaryKeyColumns = new ArrayList<>(schema.primaryKeys().size());
+        for (Integer idx : schema.primaryKeys()) {
+            primaryKeyColumns.add(schema.columns().get(idx));
+        }
+
+        // check if complete primary key is present
+        List<String> missingPrimaryKeys = new ArrayList<>();
+        for (Column pkColumn : primaryKeyColumns) {
+            boolean found = false;
+            for (NamedCell cell : stmt.keys()) {
+                if (pkColumn.name().equals(cell.column())
+                    && pkColumn.type() == cell.value().type())
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                missingPrimaryKeys.add(pkColumn.name());
+            }
+        }
+        if (!missingPrimaryKeys.isEmpty()) {
+            throw new IllegalArgumentException(
+                "Currently it is necessary to provide all primary keys "
+                + "in the select statement. The following primary keys are missing "
+                + "in the where clause: "
                 + String.join(", ", missingPrimaryKeys));
         }
     }
@@ -177,30 +224,21 @@ public class DB {
         Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
             new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
         );
+
+        validateSelect(schema, stmt);
+
         List<String> selectedColumns = stmt.columns();
         List<Column> columns = schema.columns();
 
         // TODO: put this on schema?
         List<String> columnNames = columns.stream().map(Column::name).toList();
 
-        List<Integer> indices = new ArrayList<>();
-
-        // check that all selected columns exist
-        for (String column : selectedColumns) {
-            int schemaIdx = columnNames.indexOf(column);
-            if (schemaIdx == -1) {
-                throw new IllegalArgumentException(
-                    "selected column '" + column
-                    + "' does not exist in table '" + stmt.tableName());
-            }
-            indices.add(schemaIdx);
-        }
-        Collections.sort(indices);
+        List<Integer> indices = lookupColumns(columnNames, selectedColumns);
 
         Row row = makePrimaryKey(schema, stmt.keys());
 
         if (!select(schema, row)) {
-            return SQLResult.of();
+            return new SQLResult(0, selectedColumns, List.of());
         }
 
         Row selectedRow = row.selectSubset(indices);
@@ -273,6 +311,22 @@ public class DB {
                 "Corrupted schema for table: " + tableName, e
             );
         }
+    }
+
+    private List<Integer> lookupColumns(
+        List<String> columns, List<String> selectedColumns)
+    {
+        List<Integer> indices = new ArrayList<>();
+        for (String column : selectedColumns) {
+            int index = columns.indexOf(column);
+            if (index == -1) {
+                throw new IllegalStateException(
+                    "Validation error: selected column '"
+                    + column + "' does not exist in the schema");
+            }
+            indices.add(index);
+        }
+        return indices;
     }
 
     private void fillNonPrimaryKey(Schema schema, List<NamedCell> values, Row row) {

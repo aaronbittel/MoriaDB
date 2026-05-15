@@ -33,11 +33,8 @@ public class Row {
 
     public Row selectSubset(List<Integer> indices) {
         Row row = new Row(indices.size());
-        int j = 0;
-        for (int i = 0; i < cells.length; ++i) {
-            if (indices.contains(i)) {
-                row.cells[j++] = cells[i]; // NOPMD
-            }
+        for (int i = 0; i < indices.size(); ++i) {
+            row.set(i, cells[indices.get(i)]);
         }
         return row;
     }
