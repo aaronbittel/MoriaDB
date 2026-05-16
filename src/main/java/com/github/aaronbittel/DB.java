@@ -2,6 +2,7 @@ package com.github.aaronbittel;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -108,29 +109,23 @@ public class DB {
             .toList();
 
         List<String> duplicateColumns = getDuplicates(columns);
-        if (!duplicateColumns.isEmpty()) {
-            throw new IllegalArgumentException(
-                "The following columns are duplicated: "
-                + String.join(", ", duplicateColumns));
-        }
+        requireEmpty(duplicateColumns,
+            "The following columns are duplicated: "
+            + String.join(", ", duplicateColumns));
 
         List<String> duplicatePrimaryKeys = getDuplicates(stmt.primaryKeys());
-        if (!duplicatePrimaryKeys.isEmpty()) {
-            throw new IllegalArgumentException(
-                "The following primary keys are duplicated: "
-                + String.join(", ", duplicatePrimaryKeys));
-        }
+        requireEmpty(duplicatePrimaryKeys,
+            "The following primary keys are duplicated: "
+            + String.join(", ", duplicatePrimaryKeys));
 
         List<String> missingPrimaryKeys = new ArrayList<>();
         for (String primaryKey : stmt.primaryKeys()) {
             int idx = columns.indexOf(primaryKey);
             if (idx == -1) missingPrimaryKeys.add(primaryKey);
         }
-        if (!missingPrimaryKeys.isEmpty()) {
-            throw new IllegalArgumentException(
-                "The following primary keys are missing: "
-                + String.join(", ", missingPrimaryKeys));
-        }
+        requireEmpty(missingPrimaryKeys,
+            "The following primary keys are missing: "
+            + String.join(", ", missingPrimaryKeys));
     }
 
     private void validateSelect(Schema schema, StmtSelect stmt) {
@@ -144,11 +139,9 @@ public class DB {
                 unknownSelectedColumns.add(column);
             }
         }
-        if (!unknownSelectedColumns.isEmpty()) {
-            throw new IllegalArgumentException(
-                "selected column(s) '" + String.join(", ", unknownSelectedColumns)
-                + "' do not exist in table '" + stmt.tableName());
-        }
+        requireEmpty(unknownSelectedColumns,
+            "selected column(s) '" + String.join(", ", unknownSelectedColumns)
+            + "' do not exist in table '" + stmt.tableName());
 
         // getAllPrimaryKeys as Columns
         List<Column> primaryKeyColumns = new ArrayList<>(schema.primaryKeys().size());
@@ -172,13 +165,11 @@ public class DB {
                 missingPrimaryKeys.add(pkColumn.name());
             }
         }
-        if (!missingPrimaryKeys.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Currently it is necessary to provide all primary keys "
-                + "in the select statement. The following primary keys are missing "
-                + "in the where clause: "
-                + String.join(", ", missingPrimaryKeys));
-        }
+        requireEmpty(missingPrimaryKeys,
+            "Currently it is necessary to provide all primary keys "
+            + "in the select statement. The following primary keys are missing "
+            + "in the where clause: "
+            + String.join(", ", missingPrimaryKeys));
     }
 
     private List<String> getDuplicates(List<String> elements) {
@@ -232,18 +223,16 @@ public class DB {
                         providedValue.type()));
             }
         }
-        if (!mismatches.isEmpty()) {
-            String message = mismatches.stream()
-                .map(m -> "- " + m)
-                .collect(Collectors.joining("\n"));
 
-            throw new IllegalArgumentException(
-                "For the following columns the expected and received column types "
-                + "did not match up: %n" + message);
-        }
+        String message = mismatches.stream()
+            .map(m -> "- " + m)
+            .collect(Collectors.joining("\n"));
+        requireEmpty(mismatches,
+            "For the following columns the expected and received column types "
+            + "did not match up: \n" + message);
 
         if (expectedSize > providedSize) {
-            String message = schema.columns()
+            message = schema.columns()
                 .stream()
                 .skip(providedSize)
                 .map(col -> "- %s (%s)".formatted(col.name(), col.type()))
@@ -311,13 +300,11 @@ public class DB {
             .toList();
 
         List<String> duplicatedKeys = getDuplicates(providedKeys);
-        if (!duplicatedKeys.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Currently it is only supported to select in where clause "
-                + "by primary key which must not be duplicated"
-                + "The following keys are duplicated in the where clause: "
-                + String.join(", ", duplicatedKeys));
-        }
+        requireEmpty(duplicatedKeys,
+            "Currently it is only supported to select in where clause "
+            + "by primary key which must not be duplicated"
+            + "The following keys are duplicated in the where clause: "
+            + String.join(", ", duplicatedKeys));
 
         List<String> providedValues = update
             .values()
@@ -325,11 +312,9 @@ public class DB {
             .map(NamedCell::column)
             .toList();
         List<String> duplicatedValues = getDuplicates(providedValues);
-        if (!duplicatedValues.isEmpty()) {
-            throw new IllegalArgumentException(
-                "The following values are duplicated in the set section: "
-                + String.join(", ", duplicatedValues));
-        }
+        requireEmpty(duplicatedValues,
+            "The following values are duplicated in the set section: "
+            + String.join(", ", duplicatedValues));
 
         for (NamedCell value : update.values()) {
             boolean found = false;
@@ -360,12 +345,10 @@ public class DB {
                 primaryKeysInValueList.add(value.column());
             }
         }
-        if (!primaryKeysInValueList.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Updating a primary key value if update is not allowed. "
-                + "The following primary keys were listed: "
-                + String.join(", ", primaryKeysInValueList));
-        }
+        requireEmpty(primaryKeysInValueList,
+            "Updating a primary key value if update is not allowed. "
+            + "The following primary keys were listed: "
+            + String.join(", ", primaryKeysInValueList));
 
         List<String> missingUpdateValues = new ArrayList<>();
         for (int i = 0; i < schema.columns().size(); ++i) {
@@ -384,12 +367,10 @@ public class DB {
                 missingUpdateValues.add(column.name());
             }
         }
-        if (!missingUpdateValues.isEmpty()) {
-            throw new IllegalArgumentException(
-                "Currently to update a row all non-primary key columns must be provided. "
-                + "The following columns are missing: "
-                + String.join(", ", missingUpdateValues));
-        }
+        requireEmpty(missingUpdateValues,
+            "Currently to update a row all non-primary key columns must be provided. "
+            + "The following columns are missing: "
+            + String.join(", ", missingUpdateValues));
     }
 
     public SQLResult execDelete(StmtDelete stmt) throws IOException {
@@ -411,11 +392,9 @@ public class DB {
     private void validateDelete(Schema schema, StmtDelete stmt) {
         List<String> duplicateKeys = getDuplicates(
             stmt.keys().stream().map(NamedCell::column).toList());
-        if (!duplicateKeys.isEmpty()) {
-            throw new IllegalArgumentException(
-                "The following keys are duplicated: "
-                + String.join(", ", duplicateKeys));
-        }
+        requireEmpty(duplicateKeys,
+            "The following keys are duplicated: "
+            + String.join(", ", duplicateKeys));
 
         List<Column> primaryKeyColumns = new ArrayList<>(schema.primaryKeys().size());
         for (Integer idx : schema.primaryKeys()) {
@@ -433,19 +412,14 @@ public class DB {
             }
         }
 
-        if (!primaryKeySet.isEmpty()) {
-            String message = primaryKeySet.stream()
-                .collect(Collectors.joining("\n- "));
-            throw new IllegalArgumentException(
-                "The following primary keys are missing from the where-clause: "
-                + message);
-        }
+        String message = primaryKeySet.stream().collect(Collectors.joining("\n- "));
+        requireEmpty(primaryKeySet,
+            "The following primary keys are missing from the where-clause: "
+            + message);
 
-        if (!unknownKeys.isEmpty()) {
-            throw new IllegalArgumentException(
-                "The following columns are no primary keys of the table: "
-                + String.join(", ", unknownKeys));
-        }
+        requireEmpty(unknownKeys,
+            "The following columns are no primary keys of the table: "
+            + String.join(", ", unknownKeys));
     }
 
     // Should this be private?
@@ -519,15 +493,13 @@ public class DB {
             }
         }
 
-        if (!missingPks.isEmpty()) {
-            String missingPksStr = missingPks.stream()
-                .map(Column::name)
-                .collect(Collectors.joining(", "));
-            throw new IllegalArgumentException(
-                "Currently it is necessary to provide all primary keys "
-                + "in the WHERE-clause. The following primary keys are missing: "
-                + missingPksStr);
-        }
+        String missingPksStr = missingPks.stream()
+            .map(Column::name)
+            .collect(Collectors.joining(", "));
+        requireEmpty(missingPks,
+            "Currently it is necessary to provide all primary keys "
+            + "in the WHERE-clause. The following primary keys are missing: "
+            + missingPksStr);
 
         return row;
     }
@@ -561,5 +533,11 @@ public class DB {
     public boolean delete(Schema schema, Row row) throws IOException {
         byte[] key = row.encodeKey(schema);
         return kv.delete(key);
+    }
+
+    private void requireEmpty(Collection<?> values, String message) {
+        if (!values.isEmpty()) {
+            throw new IllegalArgumentException(message);
+        }
     }
 }
