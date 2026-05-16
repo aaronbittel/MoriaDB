@@ -84,21 +84,108 @@ public class DB {
         return SQLResult.of();
     }
 
-    private List<Integer> getPrimaryKeysIdxs(
-        StmtCreateTable stmt, List<String> columns)
-    {
-        List<Integer> primaryKeysIdxs = new ArrayList<>();
-        for (String primaryKey : stmt.primaryKeys()) {
-            int idx = columns.indexOf(primaryKey);
-            if (idx == -1) {
-                throw new IllegalStateException(
-                    "Invariant violation: primary key '" + primaryKey
-                    + "' not found after validation");
-            }
-            primaryKeysIdxs.add(idx);
+    private SQLResult execInsert(StmtInsert stmt) throws IOException {
+        Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
+            new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
+        );
+
+        validateInsert(schema, stmt);
+
+        if (insert(schema, new Row(stmt.values()))) {
+            return new SQLResult(1, List.of(), List.of());
         }
 
-        return primaryKeysIdxs.stream().distinct().sorted().toList();
+        throw new IllegalArgumentException("A row with this primary key already exists");
+    }
+
+    private SQLResult execSelect(StmtSelect stmt) {
+        Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
+            new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
+        );
+
+        validateSelect(schema, stmt);
+
+        List<String> selectedColumns = stmt.columns();
+        List<Column> columns = schema.columns();
+
+        // TODO: put this on schema?
+        List<String> columnNames = columns.stream().map(Column::name).toList();
+
+        List<Integer> indices = lookupColumns(columnNames, selectedColumns);
+
+        Row row = makePrimaryKey(schema, stmt.keys());
+
+        if (!select(schema, row)) {
+            return new SQLResult(0, selectedColumns, List.of());
+        }
+
+        Row selectedRow = row.selectSubset(indices);
+
+        return new SQLResult(0, selectedColumns, List.of(selectedRow));
+    }
+
+    private SQLResult execUpdate(StmtUpdate stmt) throws IOException {
+        Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
+            new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
+        );
+
+        validateUpdate(schema, stmt);
+
+        Row row = makePrimaryKey(schema, stmt.keys());
+        fillNonPrimaryKey(schema, stmt.values(), row);
+
+        if (!update(schema, row)) {
+            return SQLResult.of();
+        }
+
+        return new SQLResult(1, List.of(), List.of());
+    }
+
+    public SQLResult execDelete(StmtDelete stmt) throws IOException {
+        Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
+            new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
+        );
+
+        validateDelete(schema, stmt);
+
+        Row row = makePrimaryKey(schema, stmt.keys());
+
+        if (!delete(schema, row)) {
+            return SQLResult.of();
+        }
+
+        return new SQLResult(1, List.of(), List.of());
+    }
+
+    public boolean select(Schema schema, Row row) {
+        Optional<byte[]> value = kv.get(row.encodeKey(schema));
+        if (value.isEmpty()) return false;
+
+        row.decodeVal(schema, value.get());
+        return true;
+    }
+
+    public boolean insert(Schema schema, Row row) throws IOException {
+        byte[] key = row.encodeKey(schema);
+        byte[] value = row.encodeVal(schema);
+        return kv.setEx(key, value, UpdateMode.INSERT);
+    }
+
+    public boolean upsert(Schema schema, Row row) throws IOException {
+        byte[] key = row.encodeKey(schema);
+        byte[] value = row.encodeVal(schema);
+        return kv.set(key, value);
+    }
+
+    public boolean update(Schema schema, Row row) throws IOException {
+        byte[] key = row.encodeKey(schema);
+        byte[] value = row.encodeVal(schema);
+        return kv.setEx(key, value, UpdateMode.UPDATE);
+    }
+
+    public boolean delete(Schema schema, Row row) throws IOException {
+        byte[] key = row.encodeKey(schema);
+        return kv.delete(key);
     }
 
     private void validateCreateTable(StmtCreateTable stmt) {
@@ -126,75 +213,6 @@ public class DB {
         requireEmpty(missingPrimaryKeys,
             "The following primary keys are missing: "
             + String.join(", ", missingPrimaryKeys));
-    }
-
-    private void validateSelect(Schema schema, StmtSelect stmt) {
-        List<Column> columns = schema.columns();
-        List<String> columnNames = columns.stream().map(Column::name).toList();
-
-        // check that all selected columns exist
-        List<String> unknownSelectedColumns = new ArrayList<>();
-        for (String column : stmt.columns()) {
-            if (columnNames.indexOf(column) == -1) {
-                unknownSelectedColumns.add(column);
-            }
-        }
-        requireEmpty(unknownSelectedColumns,
-            "selected column(s) '" + String.join(", ", unknownSelectedColumns)
-            + "' do not exist in table '" + stmt.tableName());
-
-        // getAllPrimaryKeys as Columns
-        List<Column> primaryKeyColumns = new ArrayList<>(schema.primaryKeys().size());
-        for (Integer idx : schema.primaryKeys()) {
-            primaryKeyColumns.add(schema.columns().get(idx));
-        }
-
-        // check if complete primary key is present
-        List<String> missingPrimaryKeys = new ArrayList<>();
-        for (Column pkColumn : primaryKeyColumns) {
-            boolean found = false;
-            for (NamedCell cell : stmt.keys()) {
-                if (pkColumn.name().equals(cell.column())
-                    && pkColumn.type() == cell.value().type())
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                missingPrimaryKeys.add(pkColumn.name());
-            }
-        }
-        requireEmpty(missingPrimaryKeys,
-            "Currently it is necessary to provide all primary keys "
-            + "in the select statement. The following primary keys are missing "
-            + "in the where clause: "
-            + String.join(", ", missingPrimaryKeys));
-    }
-
-    private List<String> getDuplicates(List<String> elements) {
-        List<String> duplicates = new ArrayList<>(elements.size());
-        Set<String> seen = new HashSet<>();
-        for (String elem : elements) {
-            if (!seen.add(elem)) {
-                duplicates.add(elem);
-            }
-        }
-        return duplicates;
-    }
-
-    private SQLResult execInsert(StmtInsert stmt) throws IOException {
-        Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
-            new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
-        );
-
-        validateInsert(schema, stmt);
-
-        if (insert(schema, new Row(stmt.values()))) {
-            return new SQLResult(1, List.of(), List.of());
-        }
-
-        throw new IllegalArgumentException("A row with this primary key already exists");
     }
 
     private void validateInsert(Schema schema, StmtInsert insert) {
@@ -249,47 +267,48 @@ public class DB {
         }
     }
 
-    private SQLResult execSelect(StmtSelect stmt) {
-        Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
-            new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
-        );
-
-        validateSelect(schema, stmt);
-
-        List<String> selectedColumns = stmt.columns();
+    private void validateSelect(Schema schema, StmtSelect stmt) {
         List<Column> columns = schema.columns();
-
-        // TODO: put this on schema?
         List<String> columnNames = columns.stream().map(Column::name).toList();
 
-        List<Integer> indices = lookupColumns(columnNames, selectedColumns);
+        // check that all selected columns exist
+        List<String> unknownSelectedColumns = new ArrayList<>();
+        for (String column : stmt.columns()) {
+            if (columnNames.indexOf(column) == -1) {
+                unknownSelectedColumns.add(column);
+            }
+        }
+        requireEmpty(unknownSelectedColumns,
+            "selected column(s) '" + String.join(", ", unknownSelectedColumns)
+            + "' do not exist in table '" + stmt.tableName());
 
-        Row row = makePrimaryKey(schema, stmt.keys());
-
-        if (!select(schema, row)) {
-            return new SQLResult(0, selectedColumns, List.of());
+        // getAllPrimaryKeys as Columns
+        List<Column> primaryKeyColumns = new ArrayList<>(schema.primaryKeys().size());
+        for (Integer idx : schema.primaryKeys()) {
+            primaryKeyColumns.add(schema.columns().get(idx));
         }
 
-        Row selectedRow = row.selectSubset(indices);
-
-        return new SQLResult(0, selectedColumns, List.of(selectedRow));
-    }
-
-    private SQLResult execUpdate(StmtUpdate stmt) throws IOException {
-        Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
-            new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
-        );
-
-        validateUpdate(schema, stmt);
-
-        Row row = makePrimaryKey(schema, stmt.keys());
-        fillNonPrimaryKey(schema, stmt.values(), row);
-
-        if (!update(schema, row)) {
-            return SQLResult.of();
+        // check if complete primary key is present
+        List<String> missingPrimaryKeys = new ArrayList<>();
+        for (Column pkColumn : primaryKeyColumns) {
+            boolean found = false;
+            for (NamedCell cell : stmt.keys()) {
+                if (pkColumn.name().equals(cell.column())
+                    && pkColumn.type() == cell.value().type())
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                missingPrimaryKeys.add(pkColumn.name());
+            }
         }
-
-        return new SQLResult(1, List.of(), List.of());
+        requireEmpty(missingPrimaryKeys,
+            "Currently it is necessary to provide all primary keys "
+            + "in the select statement. The following primary keys are missing "
+            + "in the where clause: "
+            + String.join(", ", missingPrimaryKeys));
     }
 
     private void validateUpdate(Schema schema, StmtUpdate update) {
@@ -373,22 +392,6 @@ public class DB {
             + String.join(", ", missingUpdateValues));
     }
 
-    public SQLResult execDelete(StmtDelete stmt) throws IOException {
-        Schema schema = getSchema(stmt.tableName()).orElseThrow(() ->
-            new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
-        );
-
-        validateDelete(schema, stmt);
-
-        Row row = makePrimaryKey(schema, stmt.keys());
-
-        if (!delete(schema, row)) {
-            return SQLResult.of();
-        }
-
-        return new SQLResult(1, List.of(), List.of());
-    }
-
     private void validateDelete(Schema schema, StmtDelete stmt) {
         List<String> duplicateKeys = getDuplicates(
             stmt.keys().stream().map(NamedCell::column).toList());
@@ -440,6 +443,34 @@ public class DB {
                 "Corrupted schema for table: " + tableName, e
             );
         }
+    }
+
+    private List<Integer> getPrimaryKeysIdxs(
+        StmtCreateTable stmt, List<String> columns)
+    {
+        List<Integer> primaryKeysIdxs = new ArrayList<>();
+        for (String primaryKey : stmt.primaryKeys()) {
+            int idx = columns.indexOf(primaryKey);
+            if (idx == -1) {
+                throw new IllegalStateException(
+                    "Invariant violation: primary key '" + primaryKey
+                    + "' not found after validation");
+            }
+            primaryKeysIdxs.add(idx);
+        }
+
+        return primaryKeysIdxs.stream().distinct().sorted().toList();
+    }
+
+    private List<String> getDuplicates(List<String> elements) {
+        List<String> duplicates = new ArrayList<>(elements.size());
+        Set<String> seen = new HashSet<>();
+        for (String elem : elements) {
+            if (!seen.add(elem)) {
+                duplicates.add(elem);
+            }
+        }
+        return duplicates;
     }
 
     private List<Integer> lookupColumns(
@@ -502,37 +533,6 @@ public class DB {
             + missingPksStr);
 
         return row;
-    }
-
-    public boolean select(Schema schema, Row row) {
-        Optional<byte[]> value = kv.get(row.encodeKey(schema));
-        if (value.isEmpty()) return false;
-
-        row.decodeVal(schema, value.get());
-        return true;
-    }
-
-    public boolean insert(Schema schema, Row row) throws IOException {
-        byte[] key = row.encodeKey(schema);
-        byte[] value = row.encodeVal(schema);
-        return kv.setEx(key, value, UpdateMode.INSERT);
-    }
-
-    public boolean upsert(Schema schema, Row row) throws IOException {
-        byte[] key = row.encodeKey(schema);
-        byte[] value = row.encodeVal(schema);
-        return kv.set(key, value);
-    }
-
-    public boolean update(Schema schema, Row row) throws IOException {
-        byte[] key = row.encodeKey(schema);
-        byte[] value = row.encodeVal(schema);
-        return kv.setEx(key, value, UpdateMode.UPDATE);
-    }
-
-    public boolean delete(Schema schema, Row row) throws IOException {
-        byte[] key = row.encodeKey(schema);
-        return kv.delete(key);
     }
 
     private void requireEmpty(Collection<?> values, String message) {
