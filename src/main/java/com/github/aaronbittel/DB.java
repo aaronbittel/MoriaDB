@@ -2,12 +2,10 @@ package com.github.aaronbittel;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -255,38 +253,23 @@ public class DB {
     private Row makePrimaryKey(Schema schema, List<NamedCell> keys) {
         Row row = new Row(schema.columns().size());
 
-        List<Column> missingPks = new ArrayList<>();
         for (int i = 0; i < schema.columns().size(); ++i) {
             if (!schema.primaryKeys().contains(i)) continue;
 
             Column pk = schema.columns().get(i);
             boolean found = false;
             for (NamedCell key : keys) {
-                if (pk.name().equals(key.column()) && pk.type() == key.value().type()) {
+                if (StmtValidator.columnMatchesNamedCell(pk, key)) {
                     row.set(i, key.value());
                     found = true;
                     break;
                 }
             }
             if (!found) {
-                missingPks.add(pk);
+                throw new IllegalStateException("validated stmt missing pk");
             }
         }
 
-        String missingPksStr = missingPks.stream()
-            .map(Column::name)
-            .collect(Collectors.joining(", "));
-        requireEmpty(missingPks,
-            "Currently it is necessary to provide all primary keys "
-            + "in the WHERE-clause. The following primary keys are missing: "
-            + missingPksStr);
-
         return row;
-    }
-
-    private void requireEmpty(Collection<?> values, String message) {
-        if (!values.isEmpty()) {
-            throw new IllegalArgumentException(message);
-        }
     }
 }

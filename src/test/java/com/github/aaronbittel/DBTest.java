@@ -276,7 +276,7 @@ class DBTest {
 
     @ParameterizedTest
     @MethodSource("invalidCreateTableStatements")
-    void invalid_create_table_stmt_causes_excetion_to_be_thrown(
+    void invalid_create_table_stmt_causes_exception_to_be_thrown(
         StmtCreateTable stmt, String description)
     {
         assertThatExceptionOfType(IllegalArgumentException.class)
@@ -371,18 +371,18 @@ class DBTest {
     @Nested
     class WithSingleExistingRow {
 
-        static String dbName = "test-table";
+        static String dbNameNested = "test-table";
 
         @BeforeEach
         void setupInitialData() throws IOException {
             StmtCreateTable createStmt = createTable(
-                dbName,
+                dbNameNested,
                 List.of(col("id", INT), col("first_name", STR), col("last_name", STR)),
                 List.of("id"));
             db.execStmt(createStmt);
 
             StmtInsert insertStmt = new StmtInsert(
-                dbName,
+                dbNameNested,
                 List.of(intCell(1), strCell("Bob"), strCell("Smith")));
             db.execStmt(insertStmt);
         }
@@ -392,24 +392,24 @@ class DBTest {
             NamedCell invalidId = namedCell("id", intCell(999));
             return Stream.of(
                 Arguments.of(
-                    createSelect(dbName, List.of("id", "first_name"), List.of(validId)),
+                    createSelect(dbNameNested, List.of("id", "first_name"), List.of(validId)),
                     List.of(createRow(intCell(1), strCell("Bob")))),
                 Arguments.of(
-                    createSelect(dbName, List.of("first_name"), List.of(validId)),
+                    createSelect(dbNameNested, List.of("first_name"), List.of(validId)),
                     List.of(createRow(strCell("Bob")))),
                 Arguments.of(
-                    createSelect(dbName, List.of("first_name", "id"), List.of(validId)),
+                    createSelect(dbNameNested, List.of("first_name", "id"), List.of(validId)),
                     List.of(createRow(strCell("Bob"), intCell(1)))),
                 Arguments.of(
                     createSelect(
-                        dbName,
+                        dbNameNested,
                         List.of("id", "first_name", "first_name", "id"),
                         List.of(validId)
                     ),
                     List.of(createRow(
                         intCell(1), strCell("Bob"), strCell("Bob"), intCell(1)))),
                 Arguments.of(
-                    createSelect(dbName, List.of("id"), List.of(invalidId)),
+                    createSelect(dbNameNested, List.of("id"), List.of(invalidId)),
                     List.of())
             );
         }
@@ -436,19 +436,19 @@ class DBTest {
                     "Unknown table"
                 ),
                 Arguments.of(
-                    createSelect(dbName, List.of("id", "unknown"), List.of(validId)),
+                    createSelect(dbNameNested, List.of("id", "unknown"), List.of(validId)),
                     "unknown column"
                 ),
                 Arguments.of(
-                    createSelect(dbName, List.of("id"), List.of(firstNameBob)),
+                    createSelect(dbNameNested, List.of("id"), List.of(firstNameBob)),
                     "Missing primary key in where clause"
                 ),
                 Arguments.of(
-                    createSelect(dbName, List.of("id"), List.of(invalidIdType)),
+                    createSelect(dbNameNested, List.of("id"), List.of(invalidIdType)),
                     "Wrong type for primary key"
                 ),
                 Arguments.of(
-                    createSelect(dbName, List.of("id"), List.of()),
+                    createSelect(dbNameNested, List.of("id"), List.of()),
                     "Missing primary key"
                 )
             );
@@ -472,19 +472,19 @@ class DBTest {
             return Stream.of(
                 Arguments.of(
                     createUpdate(
-                        dbName,
+                        dbNameNested,
                         List.of(validId),
                         List.of(newFirstNameAlice, newLastNameAndor)),
                     1),
                 Arguments.of(
                     createUpdate(
-                        dbName,
+                        dbNameNested,
                         List.of(validId),
                         List.of(newLastNameAndor, newFirstNameAlice)),
                     1),
                 Arguments.of(
                     createUpdate(
-                        dbName,
+                        dbNameNested,
                         List.of(invalidId),
                         List.of(newFirstNameAlice, newLastNameAndor)),
                     0)
@@ -517,43 +517,43 @@ class DBTest {
                     "Unknown table"),
                 Arguments.of(
                     createUpdate(
-                        dbName,
+                        dbNameNested,
                         List.of(),
                         List.of(newFirstNameAlice, newLastNameAndor)),
                     "Missing primary key"),
                 Arguments.of(
                     createUpdate(
-                        dbName,
+                        dbNameNested,
                         List.of(validId),
                         List.of(newFirstNameAlice)),
                     "Missing column"),
                 Arguments.of(
                     createUpdate(
-                        dbName,
+                        dbNameNested,
                         List.of(validId),
                         List.of(newFirstNameAlice, wrongLastNameType)),
                     "Wrong column type"),
                 Arguments.of(
                     createUpdate(
-                        dbName,
+                        dbNameNested,
                         List.of(validId),
                         List.of(newFirstNameAlice, newFirstNameAlice)),
                     "Duplicate set column + missing column"),
                 Arguments.of(
                     createUpdate(
-                        dbName,
+                        dbNameNested,
                         List.of(validId),
                         List.of(newFirstNameAlice, newFirstNameAlice, newLastNameAndor)),
                     "Duplicate set column"),
                 Arguments.of(
                     createUpdate(
-                        dbName,
+                        dbNameNested,
                         List.of(validId, validId),
                         List.of(newFirstNameAlice, newLastNameAndor)),
                     "Duplicate key in where clause"),
                 Arguments.of(
                     createUpdate(
-                        dbName,
+                        dbNameNested,
                         List.of(wrongPkType),
                         List.of(newFirstNameAlice, newLastNameAndor)),
                     "Wrong primary key type")
@@ -574,11 +574,11 @@ class DBTest {
             return Stream.of(
                 Arguments.of(
                     createInsert(
-                        dbName,
+                        dbNameNested,
                         List.of(intCell(2), strCell("Alice"), strCell("Andor")))),
                 Arguments.of(
                     createInsert(
-                        dbName,
+                        dbNameNested,
                         List.of(intCell(2), strCell("Alice"), strCell(""))))
             );
         }
@@ -602,19 +602,19 @@ class DBTest {
                         List.of(intCell(2), strCell("Alice"), strCell("Andor"))),
                     "Unknown table"),
                 Arguments.of(
-                    createInsert(dbName, List.of(strCell("Alice"), strCell("Andor"))),
+                    createInsert(dbNameNested, List.of(strCell("Alice"), strCell("Andor"))),
                     "Missing column (pk)"),
                 Arguments.of(
-                    createInsert(dbName, List.of(intCell(2), strCell("Andor"))),
+                    createInsert(dbNameNested, List.of(intCell(2), strCell("Andor"))),
                     "Missing column"),
                 Arguments.of(
                     createInsert(
-                        dbName,
+                        dbNameNested,
                         List.of(strCell("id"), strCell("Alice"), strCell("Andor"))),
                     "Wrong column type (pk)"),
                 Arguments.of(
                     createInsert(
-                        dbName,
+                        dbNameNested,
                         List.of(intCell(2), strCell("Alice"), intCell(-1))),
                     "Wrong column type")
             );
@@ -633,7 +633,7 @@ class DBTest {
         @Test
         void insert_existing_primary_key_throws_exception() throws IOException {
             StmtInsert insert = createInsert(
-                dbName,
+                dbNameNested,
                 List.of(intCell(999), strCell("Alice"), strCell("Andor")));
 
             db.execStmt(insert);
@@ -646,8 +646,8 @@ class DBTest {
             NamedCell validId = namedCell("id", intCell(1));
             NamedCell invalidId = namedCell("id", intCell(999));
             return Stream.of(
-                Arguments.of(createDelete(dbName, List.of(validId)), 1),
-                Arguments.of(createDelete(dbName, List.of(invalidId)), 0)
+                Arguments.of(createDelete(dbNameNested, List.of(validId)), 1),
+                Arguments.of(createDelete(dbNameNested, List.of(invalidId)), 0)
             );
         }
 
@@ -664,18 +664,19 @@ class DBTest {
 
         static Stream<Arguments> invalidDeleteStatements() {
             NamedCell validId = namedCell("id", intCell(1));
-            NamedCell wrongName = namedCell("id", strCell("a"));
+            NamedCell wrongName = namedCell("wrong name", intCell(1));
+            NamedCell wrongType = namedCell("id", strCell("wrong type"));
             return Stream.of(
                 Arguments.of(
                     createDelete("Unknown table", List.of(validId)), "Unknown Table"),
                 Arguments.of(
-                    createDelete(dbName, List.of(wrongName)), "Wrong key name"),
+                    createDelete(dbNameNested, List.of(wrongName)), "Wrong key name"),
                 Arguments.of(
-                    createDelete(dbName, List.of(wrongName)), "Wrong key type"),
+                    createDelete(dbNameNested, List.of(wrongType)), "Wrong key type"),
                 Arguments.of(
-                    createDelete(dbName, List.of()), "Missing key"),
+                    createDelete(dbNameNested, List.of()), "Missing key"),
                 Arguments.of(
-                    createDelete(dbName, List.of(validId, validId)), "Too many keys")
+                    createDelete(dbNameNested, List.of(validId, validId)), "Too many keys")
             );
         }
 

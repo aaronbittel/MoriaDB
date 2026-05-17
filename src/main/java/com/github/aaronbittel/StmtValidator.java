@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -14,6 +15,7 @@ import com.github.aaronbittel.parser.StmtDelete;
 import com.github.aaronbittel.parser.StmtInsert;
 import com.github.aaronbittel.parser.StmtSelect;
 import com.github.aaronbittel.parser.StmtUpdate;
+import com.github.aaronbittel.table.CellType;
 import com.github.aaronbittel.table.Column;
 import com.github.aaronbittel.table.Schema;
 
@@ -74,7 +76,7 @@ public class StmtValidator {
 
     public static void validateSelect(Schema schema, StmtSelect stmt) {
         requireAllSelectedColumnsExist(schema, stmt);
-        requireNoPrimaryKeysMissing(stmt, getPrimaryKeyColumns(schema));
+        requireNoPrimaryKeysMissing(stmt.keys(), schema.getPrimaryKeyColumns());
     }
 
     public static void validateUpdate(Schema schema, StmtUpdate stmt) {
@@ -96,8 +98,9 @@ public class StmtValidator {
         requireNoDuplicates(providedValues,
             "The following values are duplicated in the set section");
 
+        requireNoPrimaryKeysMissing(stmt.keys(), schema.getPrimaryKeyColumns());
         requireAllSetValuesExist(schema.columns(), stmt.values());
-        requireNoPrimaryKeyInValueList(stmt.values(), getPrimaryKeyNames(schema));
+        requireNoPrimaryKeyInValueList(stmt.values(), schema.getPrimaryKeyNames());
         requireAllNonPrimaryKeysInSetList(schema, stmt.values());
     }
 
@@ -108,36 +111,44 @@ public class StmtValidator {
                 .toList();
         requireNoDuplicates(keyNames, "The following keys are duplicated");
 
-        requireDeleteWhereClauseMatchesPrimaryKey(schema, stmt.keys());
+        requireCompletePrimaryKeyWhereClause(schema, stmt.keys());
     }
 
-    private static void requireDeleteWhereClauseMatchesPrimaryKey(
+    private static void requireCompletePrimaryKeyWhereClause(
         Schema schema, List<NamedCell> keys)
     {
-        Set<String> primaryKeySet = getPrimaryKeyColumns(schema).stream()
-            .map(Column::name)
-            .collect(Collectors.toSet());
+        Map<String, CellType> primaryKeys = schema.getPrimaryKeyColumns().stream()
+            .collect(Collectors.toMap(Column::name, Column::type));
 
-        List<String> unknownKeys = new ArrayList<>();
+        List<String> unknownKeys = keys.stream()
+            .map(NamedCell::column)
+            .collect(Collectors.toList());
+
         for (NamedCell key : keys) {
-            if (!primaryKeySet.remove(key.column())) {
-                unknownKeys.add(key.column());
+            if (primaryKeys.remove(key.column(), key.value().type())) {
+                unknownKeys.remove(key.column());
             }
         }
 
-        requireEmpty(primaryKeySet,
+        List<String> primaryKeyErrors = primaryKeys.entrySet()
+            .stream()
+            .map(entry -> "%s is missing or has wrong type (%s)"
+                .formatted(entry.getKey(), entry.getValue()))
+            .toList();
+
+        requireEmpty(primaryKeyErrors,
             "The following primary keys are missing from the where-clause");
 
         requireEmpty(unknownKeys,
-            "The following columns are no primary keys of the table: ");
+            "The following columns are no primary keys of the table");
     }
 
     private static void requireNoPrimaryKeyInValueList(
         List<NamedCell> setValues, List<String> primaryKeyNames)
     {
         List<String> primaryKeysInValueList = setValues.stream()
-            .filter(setValue -> primaryKeyNames.contains(setValue.column()))
             .map(NamedCell::column)
+            .filter(primaryKeyNames::contains)
             .toList();
 
         requireEmpty(primaryKeysInValueList,
@@ -180,11 +191,11 @@ public class StmtValidator {
     }
 
     private static void requireNoPrimaryKeysMissing(
-        StmtSelect stmt, List<Column> primaryKeyColumns)
+        List<NamedCell> keys, List<Column> primaryKeyColumns)
     {
         List<String> missingPrimaryKeys = new ArrayList<>();
         for (Column pkColumn : primaryKeyColumns) {
-            boolean found = stmt.keys().stream()
+            boolean found = keys.stream()
                 .anyMatch(key -> columnMatchesNamedCell(pkColumn, key));
             if (!found) {
                 missingPrimaryKeys.add(pkColumn.name());
@@ -194,14 +205,6 @@ public class StmtValidator {
             "Currently it is necessary to provide all primary keys "
             + "in the select statement. The following primary keys are missing "
             + "in the where clause");
-    }
-
-    private static List<Column> getPrimaryKeyColumns(Schema schema) {
-        List<Column> primaryKeyColumns = new ArrayList<>(schema.primaryKeys().size());
-        for (Integer idx : schema.primaryKeys()) {
-            primaryKeyColumns.add(schema.columns().get(idx));
-        }
-        return primaryKeyColumns;
     }
 
     private static void requireAllSelectedColumnsExist(Schema schema, StmtSelect stmt) {
@@ -244,19 +247,13 @@ public class StmtValidator {
         return duplicates;
     }
 
-    private static List<String> getPrimaryKeyNames(Schema schema) {
-        return getPrimaryKeyColumns(schema).stream()
-            .map(Column::name)
-            .toList();
-    }
-
     private static void requireEmpty(Collection<String> values, String message) {
         if (!values.isEmpty()) {
             throw new IllegalArgumentException(message + ": " + String.join(", ", values));
         }
     }
 
-    private static boolean columnMatchesNamedCell(Column column, NamedCell namedCell) {
+    public static boolean columnMatchesNamedCell(Column column, NamedCell namedCell) {
         return column.name().equals(namedCell.column())
             && column.type() == namedCell.value().type();
     }
