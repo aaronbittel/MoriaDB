@@ -4,11 +4,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -21,7 +19,6 @@ import com.github.aaronbittel.parser.StmtDelete;
 import com.github.aaronbittel.parser.StmtInsert;
 import com.github.aaronbittel.parser.StmtSelect;
 import com.github.aaronbittel.parser.StmtUpdate;
-import com.github.aaronbittel.table.CellType;
 import com.github.aaronbittel.table.Column;
 import com.github.aaronbittel.table.Row;
 import com.github.aaronbittel.table.Schema;
@@ -63,7 +60,7 @@ public class DB {
                 "Table '" + tableName + "' already exists");
         }
 
-        validateCreateTable(stmt);
+        StmtValidator.validateCreateTable(stmt);
 
         List<String> columnNames = stmt.columns().stream().map(Column::name).toList();
         List<Integer> primaryKeysIdxs = getPrimaryKeysIdxs(stmt, columnNames);
@@ -89,7 +86,7 @@ public class DB {
             new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
         );
 
-        validateInsert(schema, stmt);
+        StmtValidator.validateInsert(schema, stmt);
 
         if (insert(schema, new Row(stmt.values()))) {
             return new SQLResult(1, List.of(), List.of());
@@ -103,7 +100,7 @@ public class DB {
             new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
         );
 
-        validateSelect(schema, stmt);
+        StmtValidator.validateSelect(schema, stmt);
 
         List<String> selectedColumns = stmt.columns();
         List<Column> columns = schema.columns();
@@ -129,7 +126,7 @@ public class DB {
             new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
         );
 
-        validateUpdate(schema, stmt);
+        StmtValidator.validateUpdate(schema, stmt);
 
         Row row = makePrimaryKey(schema, stmt.keys());
         fillNonPrimaryKey(schema, stmt.values(), row);
@@ -146,7 +143,7 @@ public class DB {
             new IllegalArgumentException("Table '" + stmt.tableName() + "' not found")
         );
 
-        validateDelete(schema, stmt);
+        StmtValidator.validateDelete(schema, stmt);
 
         Row row = makePrimaryKey(schema, stmt.keys());
 
@@ -188,243 +185,6 @@ public class DB {
         return kv.delete(key);
     }
 
-    private void validateCreateTable(StmtCreateTable stmt) {
-        List<String> columns = stmt
-            .columns()
-            .stream()
-            .map(Column::name)
-            .toList();
-
-        List<String> duplicateColumns = getDuplicates(columns);
-        requireEmpty(duplicateColumns,
-            "The following columns are duplicated: "
-            + String.join(", ", duplicateColumns));
-
-        List<String> duplicatePrimaryKeys = getDuplicates(stmt.primaryKeys());
-        requireEmpty(duplicatePrimaryKeys,
-            "The following primary keys are duplicated: "
-            + String.join(", ", duplicatePrimaryKeys));
-
-        List<String> missingPrimaryKeys = new ArrayList<>();
-        for (String primaryKey : stmt.primaryKeys()) {
-            int idx = columns.indexOf(primaryKey);
-            if (idx == -1) missingPrimaryKeys.add(primaryKey);
-        }
-        requireEmpty(missingPrimaryKeys,
-            "The following primary keys are missing: "
-            + String.join(", ", missingPrimaryKeys));
-    }
-
-    private void validateInsert(Schema schema, StmtInsert insert) {
-        record ColumnMisMatch(String name, CellType expected, CellType got) {
-
-            @Override
-            public String toString() {
-                return "Column '%s' -> expected type '%s', but got '%s'"
-                    .formatted(name, expected, got);
-            }
-        }
-
-        int expectedSize = schema.columns().size();
-        int providedSize = insert.values().size();
-        int minLength = expectedSize > providedSize ? providedSize : expectedSize;
-
-        List<ColumnMisMatch> mismatches = new ArrayList<>(minLength);
-        for (int i = 0; i < minLength; ++i) {
-            Column expectedColumn = schema.columns().get(i);
-            Cell providedValue = insert.values().get(i);
-            if (expectedColumn.type() != providedValue.type()) {
-                mismatches.add(
-                    new ColumnMisMatch(
-                        expectedColumn.name(),
-                        expectedColumn.type(),
-                        providedValue.type()));
-            }
-        }
-
-        String message = mismatches.stream()
-            .map(m -> "- " + m)
-            .collect(Collectors.joining("\n"));
-        requireEmpty(mismatches,
-            "For the following columns the expected and received column types "
-            + "did not match up: \n" + message);
-
-        if (expectedSize > providedSize) {
-            message = schema.columns()
-                .stream()
-                .skip(providedSize)
-                .map(col -> "- %s (%s)".formatted(col.name(), col.type()))
-                .collect(Collectors.joining("\n"));
-            throw new IllegalArgumentException(
-                "Value for the following columns in missing: " + message);
-        }
-
-        if (expectedSize < providedSize) {
-            throw new IllegalArgumentException(
-                String.format(
-                    "%d values were provided, but table only has %d columns",
-                    providedSize, expectedSize));
-        }
-    }
-
-    private void validateSelect(Schema schema, StmtSelect stmt) {
-        List<Column> columns = schema.columns();
-        List<String> columnNames = columns.stream().map(Column::name).toList();
-
-        // check that all selected columns exist
-        List<String> unknownSelectedColumns = new ArrayList<>();
-        for (String column : stmt.columns()) {
-            if (columnNames.indexOf(column) == -1) {
-                unknownSelectedColumns.add(column);
-            }
-        }
-        requireEmpty(unknownSelectedColumns,
-            "selected column(s) '" + String.join(", ", unknownSelectedColumns)
-            + "' do not exist in table '" + stmt.tableName());
-
-        // getAllPrimaryKeys as Columns
-        List<Column> primaryKeyColumns = new ArrayList<>(schema.primaryKeys().size());
-        for (Integer idx : schema.primaryKeys()) {
-            primaryKeyColumns.add(schema.columns().get(idx));
-        }
-
-        // check if complete primary key is present
-        List<String> missingPrimaryKeys = new ArrayList<>();
-        for (Column pkColumn : primaryKeyColumns) {
-            boolean found = false;
-            for (NamedCell cell : stmt.keys()) {
-                if (pkColumn.name().equals(cell.column())
-                    && pkColumn.type() == cell.value().type())
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                missingPrimaryKeys.add(pkColumn.name());
-            }
-        }
-        requireEmpty(missingPrimaryKeys,
-            "Currently it is necessary to provide all primary keys "
-            + "in the select statement. The following primary keys are missing "
-            + "in the where clause: "
-            + String.join(", ", missingPrimaryKeys));
-    }
-
-    private void validateUpdate(Schema schema, StmtUpdate update) {
-        List<String> providedKeys = update
-            .keys()
-            .stream()
-            .map(NamedCell::column)
-            .toList();
-
-        List<String> duplicatedKeys = getDuplicates(providedKeys);
-        requireEmpty(duplicatedKeys,
-            "Currently it is only supported to select in where clause "
-            + "by primary key which must not be duplicated"
-            + "The following keys are duplicated in the where clause: "
-            + String.join(", ", duplicatedKeys));
-
-        List<String> providedValues = update
-            .values()
-            .stream()
-            .map(NamedCell::column)
-            .toList();
-        List<String> duplicatedValues = getDuplicates(providedValues);
-        requireEmpty(duplicatedValues,
-            "The following values are duplicated in the set section: "
-            + String.join(", ", duplicatedValues));
-
-        for (NamedCell value : update.values()) {
-            boolean found = false;
-            for (Column column : schema.columns()) {
-                if (column.name().equals(value.column())
-                    && column.type() == value.value().type())
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                throw new IllegalArgumentException(
-                    "The provided column '" + value.column() + "' does not exist");
-            }
-        }
-
-        // getAllPrimaryKeys as Strings
-        List<String> primaryKeyNames = new ArrayList<>(schema.primaryKeys().size());
-        for (Integer idx : schema.primaryKeys()) {
-            primaryKeyNames.add(schema.columns().get(idx).name());
-        }
-
-        List<String> primaryKeysInValueList = new ArrayList<>();
-        for (NamedCell value : update.values()) {
-            if (primaryKeyNames.contains(value.column())) {
-                primaryKeysInValueList.add(value.column());
-            }
-        }
-        requireEmpty(primaryKeysInValueList,
-            "Updating a primary key value if update is not allowed. "
-            + "The following primary keys were listed: "
-            + String.join(", ", primaryKeysInValueList));
-
-        List<String> missingUpdateValues = new ArrayList<>();
-        for (int i = 0; i < schema.columns().size(); ++i) {
-            if (schema.primaryKeys().contains(i)) continue;
-            Column column = schema.columns().get(i);
-            boolean found = false;
-            for (NamedCell value : update.values()) {
-                if (value.column().equals(column.name())
-                    && value.value().type() == column.type())
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                missingUpdateValues.add(column.name());
-            }
-        }
-        requireEmpty(missingUpdateValues,
-            "Currently to update a row all non-primary key columns must be provided. "
-            + "The following columns are missing: "
-            + String.join(", ", missingUpdateValues));
-    }
-
-    private void validateDelete(Schema schema, StmtDelete stmt) {
-        List<String> duplicateKeys = getDuplicates(
-            stmt.keys().stream().map(NamedCell::column).toList());
-        requireEmpty(duplicateKeys,
-            "The following keys are duplicated: "
-            + String.join(", ", duplicateKeys));
-
-        List<Column> primaryKeyColumns = new ArrayList<>(schema.primaryKeys().size());
-        for (Integer idx : schema.primaryKeys()) {
-            primaryKeyColumns.add(schema.columns().get(idx));
-        }
-
-        Set<String> primaryKeySet = primaryKeyColumns.stream()
-            .map(Column::name)
-            .collect(Collectors.toSet());
-
-        List<String> unknownKeys = new ArrayList<>();
-        for (NamedCell key : stmt.keys()) {
-            if (!primaryKeySet.remove(key.column())) {
-                unknownKeys.add(key.column());
-            }
-        }
-
-        String message = primaryKeySet.stream().collect(Collectors.joining("\n- "));
-        requireEmpty(primaryKeySet,
-            "The following primary keys are missing from the where-clause: "
-            + message);
-
-        requireEmpty(unknownKeys,
-            "The following columns are no primary keys of the table: "
-            + String.join(", ", unknownKeys));
-    }
-
     // Should this be private?
     public Optional<Schema> getSchema(String tableName) {
         if (tables.containsKey(tableName)) return Optional.of(tables.get(tableName));
@@ -460,17 +220,6 @@ public class DB {
         }
 
         return primaryKeysIdxs.stream().distinct().sorted().toList();
-    }
-
-    private List<String> getDuplicates(List<String> elements) {
-        List<String> duplicates = new ArrayList<>(elements.size());
-        Set<String> seen = new HashSet<>();
-        for (String elem : elements) {
-            if (!seen.add(elem)) {
-                duplicates.add(elem);
-            }
-        }
-        return duplicates;
     }
 
     private List<Integer> lookupColumns(
