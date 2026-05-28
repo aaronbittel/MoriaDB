@@ -2,6 +2,8 @@ package com.github.aaronbittel.table;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import com.github.aaronbittel.parser.StmtCreateTable;
@@ -18,6 +20,23 @@ public record Schema(String tableName, List<Column> columns, List<Integer> prima
         List<Integer> primaryKeysIdxs = getPrimaryKeysIdxs(stmt, columnNames);
 
         return new Schema(stmt.tableName(), stmt.columns(), primaryKeysIdxs);
+    }
+
+    public List<Integer> lookupColumns(List<String> selectedColumns) {
+        List<String> columnNames = columns.stream().map(Column::name).toList();
+
+        Map<Boolean, List<String>> m = selectedColumns.stream()
+            .collect(Collectors.partitioningBy(columnNames::contains));
+
+        if (!m.get(false).isEmpty()) {
+            throw new IllegalArgumentException(
+                "The following columns do not exist in the table '"
+                + tableName + "': " + String.join(", ", m.get(false)));
+        }
+
+        return m.get(true).stream()
+            .map(columnNames::indexOf)
+            .toList();
     }
 
     public List<Column> getPrimaryKeyColumns() {

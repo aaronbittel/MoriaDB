@@ -1,7 +1,6 @@
 package com.github.aaronbittel;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,23 +82,17 @@ public class DB {
 
         StmtValidator.validateSelect(schema, stmt);
 
-        List<String> selectedColumns = stmt.columns();
-        List<Column> columns = schema.columns();
-
-        // TODO: put this on schema?
-        List<String> columnNames = columns.stream().map(Column::name).toList();
-
-        List<Integer> indices = lookupColumns(columnNames, selectedColumns);
+        List<Integer> indices = schema.lookupColumns(stmt.columns());
 
         Row row = makePrimaryKey(schema, stmt.keys());
 
         if (!select(schema, row)) {
-            return new SQLResult(0, selectedColumns, List.of());
+            return new SQLResult(0, stmt.columns(), List.of());
         }
 
         Row selectedRow = row.selectSubset(indices);
 
-        return new SQLResult(0, selectedColumns, List.of(selectedRow));
+        return new SQLResult(0, stmt.columns(), List.of(selectedRow));
     }
 
     private SQLResult execUpdate(StmtUpdate stmt) throws IOException {
@@ -197,22 +190,6 @@ public class DB {
                 "Corrupted schema for table: " + tableName, e
             );
         }
-    }
-
-    private List<Integer> lookupColumns(
-        List<String> columns, List<String> selectedColumns)
-    {
-        List<Integer> indices = new ArrayList<>();
-        for (String column : selectedColumns) {
-            int index = columns.indexOf(column);
-            if (index == -1) {
-                throw new IllegalStateException(
-                    "Validation error: selected column '"
-                    + column + "' does not exist in the schema");
-            }
-            indices.add(index);
-        }
-        return indices;
     }
 
     private void fillNonPrimaryKey(Schema schema, List<NamedCell> values, Row row) {
