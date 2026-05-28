@@ -49,7 +49,7 @@ public class Row {
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-        baos.writeBytes(schema.tablename().getBytes());
+        baos.writeBytes(schema.tableName().getBytes());
         baos.write((byte) 0);
 
         for (Integer pkIdx : schema.primaryKeys()) {

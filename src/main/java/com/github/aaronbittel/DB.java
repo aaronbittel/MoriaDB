@@ -51,30 +51,13 @@ public class DB {
     }
 
     private SQLResult execCreateTable(StmtCreateTable stmt) throws IOException {
-        String tableName = stmt.tableName();
-
-        if (getSchema(tableName).isPresent()) {
+        if (getSchema(stmt.tableName()).isPresent()) {
             throw new IllegalArgumentException(
-                "Table '" + tableName + "' already exists");
+                "Table '" + stmt.tableName() + "' already exists");
         }
 
         StmtValidator.validateCreateTable(stmt);
-
-        List<String> columnNames = stmt.columns().stream().map(Column::name).toList();
-        List<Integer> primaryKeysIdxs = getPrimaryKeysIdxs(stmt, columnNames);
-
-        Schema schema = new Schema(tableName, stmt.columns(), primaryKeysIdxs);
-
-        byte[] schemaKey = ("@schema_" + tableName).getBytes();
-        try {
-            byte[] schemaData = mapper.writeValueAsBytes(schema);
-            kv.setEx(schemaKey, schemaData, UpdateMode.INSERT);
-            tables.put(tableName, schema);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException(
-                "Schema could not be converted to json as bytes: " + schema, e
-            );
-        }
+        storeSchema(Schema.of(stmt));
 
         return SQLResult.of();
     }
@@ -183,6 +166,19 @@ public class DB {
         return kv.delete(key);
     }
 
+    private void storeSchema(Schema schema) throws IOException {
+        byte[] schemaKey = ("@schema_" + schema.tableName()).getBytes();
+        try {
+            byte[] schemaData = mapper.writeValueAsBytes(schema);
+            kv.setEx(schemaKey, schemaData, UpdateMode.INSERT);
+            tables.put(schema.tableName(), schema);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(
+                "Schema could not be converted to json as bytes: " + schema, e
+            );
+        }
+    }
+
     // Should this be private?
     public Optional<Schema> getSchema(String tableName) {
         if (tables.containsKey(tableName)) return Optional.of(tables.get(tableName));
@@ -201,23 +197,6 @@ public class DB {
                 "Corrupted schema for table: " + tableName, e
             );
         }
-    }
-
-    private List<Integer> getPrimaryKeysIdxs(
-        StmtCreateTable stmt, List<String> columns)
-    {
-        List<Integer> primaryKeysIdxs = new ArrayList<>();
-        for (String primaryKey : stmt.primaryKeys()) {
-            int idx = columns.indexOf(primaryKey);
-            if (idx == -1) {
-                throw new IllegalStateException(
-                    "Invariant violation: primary key '" + primaryKey
-                    + "' not found after validation");
-            }
-            primaryKeysIdxs.add(idx);
-        }
-
-        return primaryKeysIdxs.stream().distinct().sorted().toList();
     }
 
     private List<Integer> lookupColumns(
